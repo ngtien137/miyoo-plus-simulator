@@ -1,0 +1,16 @@
+# Byte-compiled / optimized / DLL files
+__pycache__/
+*.py[cod]
+*.class
+*.spec
+
+# PyInstaller temporary build artifacts (do NOT ignore windows/ release)
+build/
+dist/
+
+# Test & IDE
+.pytest_cache/
+.vscode/
+.idea/
+*.tmp
+.temp/
