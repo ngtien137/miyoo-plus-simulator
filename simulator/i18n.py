@@ -1,4 +1,4 @@
-﻿# Internationalization (i18n) engine for Miyoo Plus Simulator
+# Internationalization (i18n) engine for Miyoo Plus Simulator
 # Supports EN (English - Default) and VI (Tiếng Việt)
 
 import os
@@ -65,6 +65,19 @@ TRANSLATIONS = {
         "grp_deploy": "4. MicroSD Setup & Deployment Tools",
         "btn_deploy": "🚀 Copy & Format MicroSD (Source ➔ Target)",
         "btn_export_theme": "📂 Export Active Theme to Target (Themes/)",
+
+        # KTransfer Web Server
+        "grp_ktransfer": "5. KTransfer Local Web ROMs Server (Port 9090)",
+        "ktransfer_desc": "Host local Wi-Fi/LAN web server to drag-and-drop ROMs & files from browser",
+        "btn_start_server": "▶ Start Web Server",
+        "btn_stop_server": "⏹ Stop Web Server",
+        "btn_open_portal": "🌐 Open Web Portal",
+        "ktransfer_status_running": "🟢 ONLINE: {url}",
+        "ktransfer_status_stopped": "🔴 OFFLINE (Click Start Server)",
+        "ktransfer_target_src": "Upload to: Source Payload Folder",
+        "ktransfer_target_tgt": "Upload to: Target MicroSD Drive",
+        "ktransfer_activity_lbl": "Activity: {msg}",
+        "ktransfer_files_count": "Files Received: {count}",
 
         # Deployment Dialog
         "deploy_title": "🛠️ Format & Copy OS to MicroSD Card",
@@ -280,6 +293,19 @@ TRANSLATIONS = {
         "grp_deploy": "4. Công cụ Sao chép & Format Thẻ nhớ",
         "btn_deploy": "🚀 Sao chép & Format Thẻ nhớ (Nguồn ➔ Đích)",
         "btn_export_theme": "📂 Xuất Theme Nguồn sang Thẻ nhớ Đích (Themes/)",
+
+        # KTransfer Web Server
+        "grp_ktransfer": "5. Máy chủ KTransfer truyền ROMs qua Web nội bộ (Port 9090)",
+        "ktransfer_desc": "Tự host web server qua Wi-Fi/LAN để kéo thả ROMs và quản lý file từ trình duyệt",
+        "btn_start_server": "▶ Bật Máy chủ Web",
+        "btn_stop_server": "⏹ Dừng Máy chủ Web",
+        "btn_open_portal": "🌐 Mở Trang Web KTransfer",
+        "ktransfer_status_running": "🟢 ĐANG CHẠY: {url}",
+        "ktransfer_status_stopped": "🔴 ĐÃ TẮT (Bấm Bật Máy chủ)",
+        "ktransfer_target_src": "Nơi nhận: Thư mục Nguồn OS",
+        "ktransfer_target_tgt": "Nơi nhận: Thẻ nhớ MicroSD Đích",
+        "ktransfer_activity_lbl": "Nhật ký: {msg}",
+        "ktransfer_files_count": "Đã nhận: {count} files",
 
         # Deployment Dialog
         "deploy_title": "🛠️ Format & Sao chép Hệ điều hành sang Thẻ nhớ",

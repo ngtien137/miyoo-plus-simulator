@@ -1,9 +1,12 @@
 import os
+import time
 import datetime
+import webbrowser
 from PyQt6.QtWidgets import QWidget
 from PyQt6.QtGui import QPainter, QColor, QFont, QPen, QBrush, QPixmap, QLinearGradient, QRadialGradient
 from PyQt6.QtCore import Qt, QRectF, QPointF, QTimer
 from simulator.i18n import tr, add_listener
+from simulator.ktransfer_server import KTransferServerManager, DEFAULT_PORT, get_local_ip
 
 class ScreenCanvas(QWidget):
     def __init__(self, theme_mgr, system_data, parent=None):
@@ -227,12 +230,23 @@ class ScreenCanvas(QWidget):
             self.push_view('GAME_LIST')
         elif v == 'APP_LIST':
             app = self.sys_data.apps[self.selected_app_idx]
-            if app.app_id == 'tweaks':
+            if app.app_id == 'ktransfer':
+                mgr = KTransferServerManager.get_instance()
+                if not mgr.is_running:
+                    mgr.start(self.sys_data.sd_root or self.sys_data.workspace_root, port=DEFAULT_PORT)
+                self.push_view('WEB_TRANSFER')
+            elif app.app_id == 'tweaks':
                 self.push_view('TWEAKS')
             elif app.app_id == 'activity':
                 self.push_view('ACTIVITY')
             else:
                 self.theme_mgr.play_sfx("select")
+        elif v == 'WEB_TRANSFER':
+            mgr = KTransferServerManager.get_instance()
+            if not mgr.is_running:
+                mgr.start(self.sys_data.sd_root or self.sys_data.workspace_root, port=DEFAULT_PORT)
+            st = mgr.get_status_dict()
+            webbrowser.open(st['local_url'])
         elif v == 'SETTINGS_LIST':
             if self.selected_setting_idx == 5:  # Tweaks
                 self.push_view('TWEAKS')
@@ -254,6 +268,16 @@ class ScreenCanvas(QWidget):
         self.pop_view()
 
     def press_x(self):
+        if self.current_view == 'WEB_TRANSFER':
+            mgr = KTransferServerManager.get_instance()
+            if mgr.is_running:
+                mgr.stop()
+            else:
+                mgr.start(self.sys_data.sd_root or self.sys_data.workspace_root, port=DEFAULT_PORT)
+            self.theme_mgr.play_sfx("select")
+            self.update()
+            return
+
         if self.current_view == 'GAME_LIST':
             cur_emu = self.sys_data.emulators[self.selected_emu_idx]
             if cur_emu.games:
@@ -369,6 +393,8 @@ class ScreenCanvas(QWidget):
             self.draw_tweaks_view(painter, theme)
         elif self.current_view == 'ACTIVITY':
             self.draw_activity_view(painter, theme)
+        elif self.current_view == 'WEB_TRANSFER':
+            self.draw_ktransfer_view(painter, theme)
         elif self.current_view == 'GAME_RUNNING':
             self.draw_game_running(painter, theme)
 
@@ -978,6 +1004,93 @@ class ScreenCanvas(QWidget):
             painter.drawRoundedRect(480, gy + 8, 130, 14, 4, 4)
             painter.setBrush(QBrush(QColor("#007aff")))
             painter.drawRoundedRect(480, gy + 8, int(1.3 * bar_pct), 14, 4, 4)
+
+    def draw_ktransfer_view(self, painter, theme):
+        mgr = KTransferServerManager.get_instance()
+        st = mgr.get_status_dict()
+        is_on = st['is_running']
+        ip = st['ip']
+        port = st['port']
+
+        # Semi-transparent Cyber Backing Card
+        painter.setBrush(QColor(10, 15, 29, 235))
+        painter.setPen(QPen(QColor(0, 240, 255, 120), 1.5))
+        painter.drawRoundedRect(28, 48, 584, 380, 16, 16)
+
+        # Header Title
+        painter.setPen(QPen(QColor("#00f0ff")))
+        painter.setFont(QFont("Segoe UI", 16, QFont.Weight.Bold))
+        painter.drawText(QRectF(40, 60, 560, 32), Qt.AlignmentFlag.AlignHCenter, "⚡ KTRANSFER WEB ROM SERVER")
+
+        # Animated Wi-Fi Radar Circles
+        cx, cy = 320, 145
+        t = time.time()
+        for r_step in [20, 34, 48]:
+            pulse_alpha = int(120 + 80 * ((t * 2 + r_step * 0.1) % 1.0)) if is_on else 30
+            painter.setPen(QPen(QColor(0, 240, 255, pulse_alpha) if is_on else QColor(100, 116, 139, 50), 2))
+            painter.setBrush(Qt.BrushStyle.NoBrush)
+            painter.drawArc(cx - r_step, cy - r_step, r_step * 2, r_step * 2, 45 * 16, 90 * 16)
+
+        # Center Wi-Fi Icon / Dot
+        painter.setPen(Qt.PenStyle.NoPen)
+        painter.setBrush(QColor("#10b981") if is_on else QColor("#ef4444"))
+        painter.drawEllipse(cx - 5, cy - 5, 10, 10)
+
+        # Server Status Pill
+        status_text = f"🟢 ONLINE: PORT {port}" if is_on else f"🔴 OFFLINE (PORT {port})"
+        pill_color = QColor(16, 185, 129, 40) if is_on else QColor(239, 68, 68, 40)
+        pill_border = QColor(16, 185, 129, 180) if is_on else QColor(239, 68, 68, 180)
+        painter.setBrush(pill_color)
+        painter.setPen(QPen(pill_border, 1))
+        painter.drawRoundedRect(220, 162, 200, 24, 12, 12)
+        painter.setPen(QPen(QColor("#34d399") if is_on else QColor("#f87171")))
+        painter.setFont(QFont("Segoe UI", 10, QFont.Weight.Bold))
+        painter.drawText(QRectF(220, 162, 200, 24), Qt.AlignmentFlag.AlignCenter, status_text)
+
+        # IP Address Access Box
+        ip_box_rect = QRectF(60, 196, 520, 68)
+        painter.setBrush(QColor(15, 23, 42, 220))
+        painter.setPen(QPen(QColor(0, 240, 255, 180), 1.5))
+        painter.drawRoundedRect(ip_box_rect, 10, 10)
+
+        painter.setPen(QPen(QColor("#94a3b8")))
+        painter.setFont(QFont("Segoe UI", 10, QFont.Weight.Bold))
+        painter.drawText(QRectF(60, 204, 520, 20), Qt.AlignmentFlag.AlignHCenter, "Open Browser on PC, iPhone or Android (Same Wi-Fi):")
+
+        url_str = f"http://{ip}:{port}" if is_on else f"http://<Start Server>:{port}"
+        painter.setPen(QPen(QColor("#00f0ff") if is_on else QColor("#64748b")))
+        painter.setFont(QFont("JetBrains Mono", 14, QFont.Weight.Bold))
+        painter.drawText(QRectF(60, 226, 520, 28), Qt.AlignmentFlag.AlignHCenter, url_str)
+
+        # Real-time Terminal Log / Status
+        act_rect = QRectF(60, 276, 520, 80)
+        painter.setBrush(QColor(6, 10, 18, 220))
+        painter.setPen(QPen(QColor(255, 255, 255, 25), 1))
+        painter.drawRoundedRect(act_rect, 8, 8)
+
+        painter.setPen(QPen(QColor("#38bdf8")))
+        painter.setFont(QFont("JetBrains Mono", 9, QFont.Weight.Bold))
+        act_str = f"📥 {st['current_activity']}"
+        painter.drawText(QRectF(72, 284, 496, 20), Qt.AlignmentFlag.AlignLeft, act_str)
+
+        painter.setPen(QPen(QColor("#64748b")))
+        painter.setFont(QFont("JetBrains Mono", 8))
+        recent_preview = st['recent_logs'][1] if len(st['recent_logs']) > 1 else "[Ready] Waiting for incoming ROM transfers..."
+        painter.drawText(QRectF(72, 306, 496, 18), Qt.AlignmentFlag.AlignLeft, f"• {recent_preview}")
+
+        # Storage Stats
+        free_gb = st['free_gb']
+        tot_gb = st['total_gb']
+        cnt = st['transferred_count']
+        stats_str = f"💾 Storage: {free_gb} GB Free / {tot_gb} GB  |  🎮 Transferred: {cnt} files"
+        painter.setPen(QPen(QColor("#a855f7")))
+        painter.drawText(QRectF(72, 328, 496, 18), Qt.AlignmentFlag.AlignLeft, stats_str)
+
+        # Bottom Action Bar
+        action_rect = QRectF(40, 375, 560, 32)
+        painter.setPen(QPen(QColor("#94a3b8")))
+        painter.setFont(QFont("Segoe UI", 10, QFont.Weight.Bold))
+        painter.drawText(action_rect, Qt.AlignmentFlag.AlignCenter, "[A] Open Web Portal   •   [X] Toggle Server (ON/OFF)   •   [B] Back to Apps")
 
     def draw_game_running(self, painter, theme):
         painter.fillRect(0, 0, 640, 480, QColor("#000000"))

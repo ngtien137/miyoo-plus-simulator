@@ -2,6 +2,7 @@ import os
 import shutil
 import string
 import tempfile
+import webbrowser
 from PyQt6.QtWidgets import (
     QWidget, QVBoxLayout, QHBoxLayout, QLabel, QComboBox, QPushButton,
     QSlider, QCheckBox, QGroupBox, QScrollArea, QColorDialog, QMessageBox,
@@ -12,6 +13,7 @@ from PyQt6.QtGui import QPixmap, QColor, QFont, QIcon
 from PyQt6.QtCore import Qt, QThread, pyqtSignal
 from simulator.i18n import tr, get_language, set_language, add_listener
 from simulator.recent_history import load_recent_sources, add_recent_source
+from simulator.ktransfer_server import KTransferServerManager, DEFAULT_PORT, get_local_ip
 
 class DeployWorker(QThread):
     progress = pyqtSignal(int, str)
@@ -544,6 +546,12 @@ class ControlDeck(QWidget):
             self.grp_quick.setTitle(tr("grp_deploy"))
             self.btn_deploy.setText(tr("btn_deploy"))
             self.btn_copy_theme_sd.setText(tr("btn_export_theme"))
+            if hasattr(self, 'grp_ktransfer') and self.grp_ktransfer:
+                self.grp_ktransfer.setTitle(tr("grp_ktransfer"))
+                self.btn_kt_open.setText(tr("btn_open_portal"))
+                self.kt_dest_combo.setItemText(0, tr("ktransfer_target_src"))
+                self.kt_dest_combo.setItemText(1, tr("ktransfer_target_tgt"))
+                self.update_ktransfer_ui()
             self.update_boot_diagnostic_ui()
             self.update_target_info()
             self.populate_sources()
@@ -687,6 +695,42 @@ class ControlDeck(QWidget):
         q_layout.addWidget(self.btn_copy_theme_sd)
 
         layout.addWidget(self.grp_quick)
+
+        # 5. KTransfer Local Web ROMs Server
+        self.grp_ktransfer = QGroupBox(tr("grp_ktransfer"))
+        kt_layout = QVBoxLayout(self.grp_ktransfer)
+
+        self.kt_status_badge = QLabel()
+        self.kt_status_badge.setFont(QFont("Segoe UI", 10, QFont.Weight.Bold))
+        self.kt_status_badge.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        self.kt_status_badge.setStyleSheet("background: #1e293b; color: #94a3b8; padding: 6px; border-radius: 6px; border: 1px solid #334155;")
+        kt_layout.addWidget(self.kt_status_badge)
+
+        kt_btn_row = QHBoxLayout()
+        self.btn_kt_toggle = QPushButton(tr("btn_start_server"))
+        self.btn_kt_toggle.setStyleSheet("background: #0284c7; color: #fff; font-weight: bold; padding: 8px; border-radius: 4px;")
+        self.btn_kt_toggle.clicked.connect(self.toggle_ktransfer_server)
+        kt_btn_row.addWidget(self.btn_kt_toggle, 1)
+
+        self.btn_kt_open = QPushButton(tr("btn_open_portal"))
+        self.btn_kt_open.setStyleSheet("background: #8b5cf6; color: #fff; font-weight: bold; padding: 8px; border-radius: 4px;")
+        self.btn_kt_open.clicked.connect(self.open_ktransfer_portal)
+        kt_btn_row.addWidget(self.btn_kt_open, 1)
+        kt_layout.addLayout(kt_btn_row)
+
+        self.kt_dest_combo = QComboBox()
+        self.kt_dest_combo.setStyleSheet("background: #2c2c2e; color: #fff; padding: 4px; border-radius: 4px;")
+        self.kt_dest_combo.addItem(tr("ktransfer_target_src"), "source")
+        self.kt_dest_combo.addItem(tr("ktransfer_target_tgt"), "target")
+        self.kt_dest_combo.currentIndexChanged.connect(self.on_ktransfer_dest_changed)
+        kt_layout.addWidget(self.kt_dest_combo)
+
+        self.lbl_kt_activity = QLabel("Idle (Ready to receive files)")
+        self.lbl_kt_activity.setStyleSheet("color: #38bdf8; font-size: 11px; font-family: 'Segoe UI';")
+        self.lbl_kt_activity.setWordWrap(True)
+        kt_layout.addWidget(self.lbl_kt_activity)
+
+        layout.addWidget(self.grp_ktransfer)
         layout.addStretch()
 
         self.populate_sources()
@@ -694,10 +738,64 @@ class ControlDeck(QWidget):
         self.source_combo.currentTextChanged.connect(self.on_source_changed)
         self.target_combo.currentTextChanged.connect(self.on_target_changed)
 
+        KTransferServerManager.get_instance().add_listener(self.on_ktransfer_status_updated)
+        self.update_ktransfer_ui()
+
         scroll.setWidget(widget)
         self.update_boot_diagnostic_ui()
         self.update_target_info()
         return scroll
+
+    def toggle_ktransfer_server(self):
+        mgr = KTransferServerManager.get_instance()
+        if mgr.is_running:
+            mgr.stop()
+        else:
+            dest = self.get_source_path() if self.kt_dest_combo.currentData() == 'source' else self.get_target_path()
+            mgr.start(dest, port=DEFAULT_PORT)
+        self.update_ktransfer_ui()
+
+    def open_ktransfer_portal(self):
+        mgr = KTransferServerManager.get_instance()
+        if not mgr.is_running:
+            dest = self.get_source_path() if self.kt_dest_combo.currentData() == 'source' else self.get_target_path()
+            mgr.start(dest, port=DEFAULT_PORT)
+            self.update_ktransfer_ui()
+        st = mgr.get_status_dict()
+        webbrowser.open(st['local_url'])
+
+    def on_ktransfer_dest_changed(self):
+        mgr = KTransferServerManager.get_instance()
+        if mgr.is_running:
+            dest = self.get_source_path() if self.kt_dest_combo.currentData() == 'source' else self.get_target_path()
+            mgr.start(dest, port=DEFAULT_PORT)
+            self.update_ktransfer_ui()
+
+    def on_ktransfer_status_updated(self, status):
+        try:
+            if status.get('transferred_count', 0) > 0:
+                self.sys_data.init_data()
+                self.canvas.update()
+            self.update_ktransfer_ui()
+        except Exception:
+            pass
+
+    def update_ktransfer_ui(self):
+        if not hasattr(self, 'kt_status_badge') or not self.kt_status_badge:
+            return
+        mgr = KTransferServerManager.get_instance()
+        st = mgr.get_status_dict()
+        if st['is_running']:
+            self.kt_status_badge.setText(tr("ktransfer_status_running", url=st['url']))
+            self.kt_status_badge.setStyleSheet("background: #064e3b; color: #34d399; padding: 6px; border-radius: 6px; border: 1px solid #059669;")
+            self.btn_kt_toggle.setText(tr("btn_stop_server"))
+            self.btn_kt_toggle.setStyleSheet("background: #ef4444; color: #fff; font-weight: bold; padding: 8px; border-radius: 4px;")
+        else:
+            self.kt_status_badge.setText(tr("ktransfer_status_stopped"))
+            self.kt_status_badge.setStyleSheet("background: #1e293b; color: #94a3b8; padding: 6px; border-radius: 6px; border: 1px solid #334155;")
+            self.btn_kt_toggle.setText(tr("btn_start_server"))
+            self.btn_kt_toggle.setStyleSheet("background: #0284c7; color: #fff; font-weight: bold; padding: 8px; border-radius: 4px;")
+        self.lbl_kt_activity.setText(f"📥 {st['current_activity']} | {tr('ktransfer_files_count', count=st['transferred_count'])}")
 
     def get_source_path(self):
         if self.source_combo and self.source_combo.currentData():
