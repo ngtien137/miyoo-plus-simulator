@@ -166,7 +166,7 @@ class SystemData:
         # Apps (Full multi-app suite)
         if self.boot_diag.boot_mode in ["CUSTOM_OS", "ONION_OS"]:
             self.apps = [
-                AppItem("KTransfer", "ktransfer", "Local Web ROMs & File Transfer over Wi-Fi/LAN (Port 9090)", "web"),
+                AppItem("KTransfer", "ktransfer", "Local Web ROMs & File Transfer over Wi-Fi/LAN (Port 9090)", "ktransfer"),
                 AppItem("Tweaks", "tweaks", "System configuration, hotkeys & LED tweaks", "tweaks"),
                 AppItem("Package Manager", "package_manager", "Install/Uninstall emulator cores and standalone apps", "package"),
                 AppItem("Activity Tracker", "activity", "Detailed gameplay statistics and total playtime logs", "activity"),
