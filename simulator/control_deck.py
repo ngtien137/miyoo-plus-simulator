@@ -858,6 +858,8 @@ class ControlDeck(QWidget):
         self.canvas.view_stack = ['MAIN_CAROUSEL']
         self.canvas.active_running_game = None
         self.canvas.switcher_open = False
+        self.canvas.boot_splash_active = True
+        self.canvas.boot_progress = 0
         self.update_boot_diagnostic_ui()
         self.canvas.update()
         self.theme_mgr.play_sfx("select")

@@ -40,6 +40,11 @@ class ScreenCanvas(QWidget):
         self.volume = 14
         self.brightness = 8
         self.game_frame_count = 0
+
+        # Boot Splash Screen State
+        self.boot_splash_active = True
+        self.boot_progress = 0
+        self.boot_message = "Initializing Linux Kernel & MicroSD VFS..."
         
         # Real-time clock & animation timer
         self.timer = QTimer(self)
@@ -78,6 +83,20 @@ class ScreenCanvas(QWidget):
         ]
 
     def on_timer_tick(self):
+        if self.boot_splash_active:
+            self.boot_progress += 4
+            if self.boot_progress < 30:
+                self.boot_message = "Loading Linux Kernel 4.9.84..."
+            elif self.boot_progress < 65:
+                self.boot_message = "Mounting MicroSD VFS (.kayzit)..."
+            elif self.boot_progress < 95:
+                self.boot_message = "Starting Kayzit 3D Glass UI..."
+            else:
+                self.boot_splash_active = False
+                self.boot_progress = 0
+            self.update()
+            return
+
         if self.current_view == 'GAME_RUNNING':
             self.game_frame_count += 1
         self.update()
@@ -254,6 +273,44 @@ class ScreenCanvas(QWidget):
             self.theme_mgr.play_sfx("back")
         self.update()
 
+    def draw_boot_splash(self, painter, theme):
+        # 1. Background Image
+        splash_pix = theme.get_pixmap("splash.png") if theme else None
+        if not splash_pix or splash_pix.isNull():
+            default_splash = os.path.join(self.sys_data.workspace_root, "assets", "splash.png")
+            if os.path.exists(default_splash):
+                splash_pix = QPixmap(default_splash)
+
+        if splash_pix and not splash_pix.isNull():
+            painter.drawPixmap(0, 0, 640, 480, splash_pix)
+        else:
+            painter.fillRect(0, 0, 640, 480, QColor("#050a14"))
+            painter.setPen(QPen(QColor("#00f0ff")))
+            painter.setFont(QFont("Segoe UI", 24, QFont.Weight.Black))
+            painter.drawText(QRectF(0, 180, 640, 40), Qt.AlignmentFlag.AlignCenter, "⚡ KAYZIT OS")
+
+        # 2. Dynamic Animated Glowing Progress Bar
+        bar_w, bar_h = 240, 6
+        bar_x = (640 - bar_w) // 2
+        bar_y = 355
+
+        painter.setPen(Qt.PenStyle.NoPen)
+        painter.setBrush(QColor(30, 41, 59, 230))
+        painter.drawRoundedRect(bar_x, bar_y, bar_w, bar_h, 3, 3)
+
+        curr_w = int(bar_w * (min(100, max(5, self.boot_progress)) / 100.0))
+        prog_grad = QLinearGradient(bar_x, bar_y, bar_x + bar_w, bar_y)
+        prog_grad.setColorAt(0.0, QColor("#0284c7"))
+        prog_grad.setColorAt(0.5, QColor("#00f0ff"))
+        prog_grad.setColorAt(1.0, QColor("#a855f7"))
+        painter.setBrush(prog_grad)
+        painter.drawRoundedRect(bar_x, bar_y, curr_w, bar_h, 3, 3)
+
+        # 3. Dynamic Boot Message Status
+        painter.setPen(QPen(QColor("#94a3b8")))
+        painter.setFont(QFont("Segoe UI", 10, QFont.Weight.DemiBold))
+        painter.drawText(QRectF(0, 375, 640, 22), Qt.AlignmentFlag.AlignCenter, self.boot_message)
+
     # Painting / Rendering
     def paintEvent(self, event):
         painter = QPainter(self)
@@ -269,12 +326,17 @@ class ScreenCanvas(QWidget):
         
         theme = self.theme_mgr.current_theme
         
+        # 0. Boot Splash Check
+        if self.boot_splash_active:
+            self.draw_boot_splash(painter, theme)
+            return
+
         # 1. Background
         bg_pix = theme.get_pixmap("background.png") if theme else None
+        if not bg_pix or bg_pix.isNull():
+            bg_pix = theme.get_pixmap("wallpaper.jpg") if theme else None
         if bg_pix and not bg_pix.isNull():
             painter.drawPixmap(0, 0, 640, 480, bg_pix)
-            # Soft dark frosted scrim so UI elements and icons have maximum contrast
-            painter.fillRect(0, 0, 640, 480, QColor(5, 8, 16, 135))
         else:
             grad = QLinearGradient(0, 0, 640, 480)
             grad.setColorAt(0.0, QColor("#04070e"))
@@ -426,10 +488,10 @@ class ScreenCanvas(QWidget):
 
             if is_active:
                 # Active Center 3D Glass Hero Card
-                card_w = 200
-                card_h = 210
+                card_w = 196
+                card_h = 196
                 cx = center_x - (card_w // 2)
-                cy = 108
+                cy = 118
 
                 # Drop Shadow
                 sh_grad = QRadialGradient(center_x, cy + card_h + 4, 110)
@@ -459,29 +521,14 @@ class ScreenCanvas(QWidget):
                 # 3D Icon Image
                 icon_size = 96
                 ix = cx + (card_w - icon_size) // 2
-                iy = cy + 18
+                iy = cy + 22
                 if pix and not pix.isNull():
                     painter.drawPixmap(ix, iy, icon_size, icon_size, pix.scaled(icon_size, icon_size, Qt.AspectRatioMode.KeepAspectRatio, Qt.TransformationMode.SmoothTransformation))
 
                 # Title inside Card
                 painter.setPen(QPen(QColor("#FFFFFF")))
-                painter.setFont(QFont("Segoe UI", 13, QFont.Weight.Bold))
-                painter.drawText(QRectF(cx + 10, cy + 124, card_w - 20, 24), Qt.AlignmentFlag.AlignCenter, tab_name)
-
-                # Action Capsule Pill
-                pill_w, pill_h = 120, 24
-                px = cx + (card_w - pill_w) // 2
-                py = cy + 158
-                p_grad = QLinearGradient(px, py, px + pill_w, py + pill_h)
-                p_grad.setColorAt(0.0, QColor("#0284c7"))
-                p_grad.setColorAt(1.0, QColor("#00f0ff"))
-                painter.setPen(Qt.PenStyle.NoPen)
-                painter.setBrush(p_grad)
-                painter.drawRoundedRect(QRectF(px, py, pill_w, pill_h), 12, 12)
-
-                painter.setPen(QPen(QColor("#0f172a")))
-                painter.setFont(QFont("Segoe UI", 9, QFont.Weight.Black))
-                painter.drawText(QRectF(px, py, pill_w, pill_h), Qt.AlignmentFlag.AlignCenter, tr("ui_press_open"))
+                painter.setFont(QFont("Segoe UI", 14, QFont.Weight.Bold))
+                painter.drawText(QRectF(cx + 10, cy + 138, card_w - 20, 28), Qt.AlignmentFlag.AlignCenter, tab_name)
 
             elif -2 <= offset <= 2:
                 # Flanking Side Cards
