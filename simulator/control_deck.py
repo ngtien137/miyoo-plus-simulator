@@ -114,6 +114,35 @@ class DeployWorker(QThread):
             for sdir in standard_dirs:
                 os.makedirs(os.path.join(self.target_path, sdir), exist_ok=True)
 
+            # 4b. Auto-Apply Active Theme & Skin to Miyoo / Onion System Folders
+            self.progress.emit(90, "Applying active Kayzit OS theme & skin to MicroSD...")
+            active_theme_dir = os.path.join(self.target_path, "Themes", "Kayzit Basic")
+            if not os.path.exists(active_theme_dir):
+                themes_folder = os.path.join(self.target_path, "Themes")
+                if os.path.exists(themes_folder) and os.listdir(themes_folder):
+                    first_t = os.listdir(themes_folder)[0]
+                    active_theme_dir = os.path.join(themes_folder, first_t)
+
+            if os.path.exists(active_theme_dir):
+                skin_src = os.path.join(active_theme_dir, "skin")
+                if os.path.exists(skin_src):
+                    for m_skin in [os.path.join(self.target_path, "miyoo", "app", "skin"),
+                                   os.path.join(self.target_path, "miyoo354", "app", "skin"),
+                                   os.path.join(self.target_path, ".tmp_update", "res")]:
+                        os.makedirs(m_skin, exist_ok=True)
+                        shutil.copytree(skin_src, m_skin, dirs_exist_ok=True)
+
+                    cfg_dir = os.path.join(self.target_path, ".tmp_update", "config")
+                    os.makedirs(cfg_dir, exist_ok=True)
+                    rel_theme_path = f"/mnt/SDCARD/Themes/{os.path.basename(active_theme_dir)}/"
+                    with open(os.path.join(cfg_dir, "active_theme"), "w", encoding="utf-8") as f:
+                        f.write(rel_theme_path)
+
+                    icons_src = os.path.join(skin_src, "icons")
+                    if os.path.exists(icons_src):
+                        with open(os.path.join(cfg_dir, "active_icon_pack"), "w", encoding="utf-8") as f:
+                            f.write(f"/mnt/SDCARD/Themes/{os.path.basename(active_theme_dir)}/skin/icons")
+
             # 5. Restore Preserved Data
             if temp_backup_dir and os.path.exists(temp_backup_dir):
                 self.progress.emit(94, tr("prog_restore"))
@@ -1319,7 +1348,23 @@ class ControlDeck(QWidget):
         dest_dir = os.path.join(dest_themes, t.name)
         
         try:
+            # 1. Copy theme to Themes/<Name>
             shutil.copytree(t.folder_path, dest_dir, dirs_exist_ok=True)
-            QMessageBox.information(self, "Thành công", f"Theme '{t.name}' đã được xuất sang:\n{dest_dir}")
+
+            # 2. Auto-Apply to miyoo/app/skin and .tmp_update so it takes effect immediately on device
+            skin_src = os.path.join(dest_dir, "skin")
+            if os.path.exists(skin_src):
+                for m_skin in [os.path.join(dest_drive, "miyoo", "app", "skin"),
+                               os.path.join(dest_drive, "miyoo354", "app", "skin"),
+                               os.path.join(dest_drive, ".tmp_update", "res")]:
+                    os.makedirs(m_skin, exist_ok=True)
+                    shutil.copytree(skin_src, m_skin, dirs_exist_ok=True)
+
+                cfg_dir = os.path.join(dest_drive, ".tmp_update", "config")
+                os.makedirs(cfg_dir, exist_ok=True)
+                with open(os.path.join(cfg_dir, "active_theme"), "w", encoding="utf-8") as f:
+                    f.write(f"/mnt/SDCARD/Themes/{t.name}/")
+
+            QMessageBox.information(self, "Thành công", f"Theme '{t.name}' đã được xuất & kích hoạt trực tiếp sang Thẻ nhớ:\n{dest_dir}")
         except Exception as e:
             QMessageBox.critical(self, "Lỗi", f"Không thể xuất theme: {e}")
