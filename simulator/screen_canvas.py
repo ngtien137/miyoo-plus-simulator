@@ -34,27 +34,29 @@ class ScreenCanvas(QWidget):
         
         # Tweaks data
         self.tweaks_list = [
-            {"name": "Quick Save/Load on Exit", "val": "Enabled", "desc": "Auto save state when exiting and auto resume"},
-            {"name": "Menu Button Single-Tap", "val": "Game Switcher", "desc": "Action when pressing Menu button once"},
-            {"name": "Menu Button Long-Press", "val": "Exit to Menu", "desc": "Action when holding Menu button for 1s"},
-            {"name": "CPU Overclock Profile", "val": "Smart Boost (1.3GHz)", "desc": "Dynamically boost CPU for heavy PS1/NDS games"},
-            {"name": "Wi-Fi Web File Manager", "val": "Running (Port 80)", "desc": "Upload ROMs/Saves via web browser"},
-            {"name": "Samba File Sharing", "val": "Active (\\\\miyoo)", "desc": "Access SD card directly in Windows Explorer"},
-            {"name": "Cloud Save Sync (Rclone)", "val": "Google Drive", "desc": "Auto sync game saves with cloud storage"},
-            {"name": "RetroAchievements", "val": "Logged In", "desc": "Track retro game achievements online"},
-            {"name": "Top LED Indicator", "val": "Subtle Pulse", "desc": "LED behavior during gameplay and sleep"}
+            {"name": "Quick Save/Load on Exit", "val": "Enabled", "desc": "Auto save state when exiting and auto resume", "icon": "save"},
+            {"name": "Menu Button Single-Tap", "val": "Game Switcher", "desc": "Action when pressing Menu button once", "icon": "menu_btn"},
+            {"name": "Menu Button Long-Press", "val": "Exit to Menu", "desc": "Action when holding Menu button for 1s", "icon": "power"},
+            {"name": "CPU Overclock Profile", "val": "Smart Boost (1.4GHz)", "desc": "Dynamically boost CPU for heavy PS1/NDS games", "icon": "cpu"},
+            {"name": "Wi-Fi Web File Manager", "val": "Running (Port 80)", "desc": "Upload ROMs/Saves via web browser", "icon": "web"},
+            {"name": "Samba File Sharing", "val": "Active (\\\\miyoo)", "desc": "Access SD card directly in Windows Explorer", "icon": "network"},
+            {"name": "Cloud Save Sync (Rclone)", "val": "Google Drive", "desc": "Auto sync game saves with cloud storage", "icon": "cloud"},
+            {"name": "RetroAchievements", "val": "Logged In", "desc": "Track retro game achievements online", "icon": "trophy"},
+            {"name": "Top LED Indicator", "val": "Battery Reactive", "desc": "LED behavior during gameplay and sleep", "icon": "led"}
         ]
         
         # Settings data
         self.settings_list = [
-            {"name": "Theme Selection", "val": "Browse 25 Themes"},
-            {"name": "Wi-Fi Network", "val": "Connected (RetroNet)"},
-            {"name": "Display Brightness", "val": "Level 8 / 10"},
-            {"name": "Volume Level", "val": "Level 14 / 20"},
-            {"name": "Clock / NTP Sync", "val": "Auto (GMT+7)"},
-            {"name": "Storage Information", "val": "MicroSD SDHC/XC"},
-            {"name": "Display Resolution", "val": "640x480 (4:3 IPS)"},
-            {"name": "About Miyoo Plus", "val": "ARMv7 Dual-Core 1.2GHz"}
+            {"name": "Theme Selection", "val": "Browse Themes", "icon": "theme"},
+            {"name": "Wi-Fi & Network", "val": "Connected (RetroNet)", "icon": "wifi"},
+            {"name": "Display & Brightness", "val": "Level 8 / 10", "icon": "brightness"},
+            {"name": "Audio & Volume", "val": "Level 14 / 20", "icon": "volume"},
+            {"name": "Hardware Overclock", "val": "1.4GHz Turbo Profile", "icon": "cpu"},
+            {"name": "Haptic Rumble & Vibration", "val": "Strength Level 7", "icon": "rumble"},
+            {"name": "Clock / NTP Time Sync", "val": "Auto (GMT+7)", "icon": "clock"},
+            {"name": "Storage & MicroSD Card", "val": "MicroSD SDHC/XC", "icon": "sdcard"},
+            {"name": "Language / Ngôn ngữ", "val": "English / Tiếng Việt", "icon": "language"},
+            {"name": "About Kayzit OS", "val": "v1.0.0 (SSD202D)", "icon": "about"}
         ]
         
         # Status indicators
@@ -790,37 +792,55 @@ class ScreenCanvas(QWidget):
             painter.drawText(QRectF(list_x + 48, y, 290, item_h - 4), Qt.AlignmentFlag.AlignVCenter | Qt.AlignmentFlag.AlignLeft, emu.name)
 
     def draw_settings_list(self, painter, theme):
-        painter.setPen(QPen(theme.title_color if theme else QColor("#FFFFFF")))
-        painter.setFont(QFont("Segoe UI", 16, QFont.Weight.Bold))
-        painter.drawText(QRectF(25, 46, 350, 28), Qt.AlignmentFlag.AlignVCenter | Qt.AlignmentFlag.AlignLeft, "Settings & System Info")
+        painter.setPen(QPen(QColor("#00f0ff")))
+        painter.setFont(QFont("Segoe UI", 16, QFont.Weight.Black))
+        painter.drawText(QRectF(25, 46, 350, 28), Qt.AlignmentFlag.AlignVCenter | Qt.AlignmentFlag.AlignLeft, "⚙️ SYSTEM PREFERENCES")
 
         list_x = 25
         list_y = 78
         item_h = 42
+        visible_count = 8
 
-        for i, item in enumerate(self.settings_list):
-            y = list_y + i * item_h
+        start_idx = max(0, self.selected_setting_idx - 3)
+        if start_idx + visible_count > len(self.settings_list):
+            start_idx = max(0, len(self.settings_list) - visible_count)
+        end_idx = min(len(self.settings_list), start_idx + visible_count)
+
+        for i in range(start_idx, end_idx):
+            item = self.settings_list[i]
+            y = list_y + (i - start_idx) * item_h
             is_selected = (i == self.selected_setting_idx)
 
             if is_selected:
-                painter.setPen(Qt.PenStyle.NoPen)
-                painter.setBrush(QBrush(QColor(0, 122, 255, 180)))
+                painter.setPen(QPen(QColor("#00f0ff"), 1.5))
+                painter.setBrush(QColor(30, 41, 59, 220))
                 painter.drawRoundedRect(list_x, y, 590, item_h - 4, 8, 8)
+                painter.fillRect(list_x, y + 4, 4, item_h - 12, QColor("#00f0ff"))
                 painter.setPen(QPen(QColor("#FFFFFF")))
             else:
-                painter.setPen(QPen(theme.list_color if theme else QColor("#E0E0E0")))
+                painter.setPen(QPen(QColor(255, 255, 255, 30), 1))
+                painter.setBrush(QColor(15, 23, 42, 160))
+                painter.drawRoundedRect(list_x, y, 590, item_h - 4, 8, 8)
+                painter.setPen(QPen(QColor("#cbd5e1")))
 
-            painter.setFont(QFont("Segoe UI", 12, QFont.Weight.Bold if is_selected else QFont.Weight.Normal))
-            painter.drawText(QRectF(list_x + 15, y, 260, item_h - 4), Qt.AlignmentFlag.AlignVCenter | Qt.AlignmentFlag.AlignLeft, item["name"])
+            # Row 3D Icon
+            icon_id = item.get("icon", "settings")
+            icon_path = self.theme_mgr.get_icon_path(icon_id, is_app=True)
+            if icon_path and os.path.exists(icon_path):
+                pm = QPixmap(icon_path)
+                painter.drawPixmap(list_x + 10, y + 5, 26, 26, pm)
 
-            painter.setFont(QFont("Segoe UI", 11, QFont.Weight.Normal))
-            painter.setPen(QPen(QColor(255, 255, 255, 200) if is_selected else QColor(170, 170, 170)))
+            painter.setFont(QFont("Segoe UI", 12, QFont.Weight.Bold if is_selected else QFont.Weight.DemiBold))
+            painter.drawText(QRectF(list_x + 44, y, 260, item_h - 4), Qt.AlignmentFlag.AlignVCenter | Qt.AlignmentFlag.AlignLeft, item["name"])
+
+            painter.setFont(QFont("Segoe UI", 11, QFont.Weight.DemiBold))
+            painter.setPen(QPen(QColor("#00f0ff") if is_selected else QColor("#94a3b8")))
             painter.drawText(QRectF(list_x + 290, y, 285, item_h - 4), Qt.AlignmentFlag.AlignVCenter | Qt.AlignmentFlag.AlignRight, item["val"])
 
     def draw_tweaks_view(self, painter, theme):
-        painter.setPen(QPen(theme.title_color if theme else QColor("#FFFFFF")))
-        painter.setFont(QFont("Segoe UI", 16, QFont.Weight.Bold))
-        painter.drawText(QRectF(25, 46, 350, 28), Qt.AlignmentFlag.AlignVCenter | Qt.AlignmentFlag.AlignLeft, "Onion Tweaks Configuration")
+        painter.setPen(QPen(QColor("#00f0ff")))
+        painter.setFont(QFont("Segoe UI", 16, QFont.Weight.Black))
+        painter.drawText(QRectF(25, 46, 350, 28), Qt.AlignmentFlag.AlignVCenter | Qt.AlignmentFlag.AlignLeft, "⚡ KAYZIT HARDWARE TWEAKS")
 
         list_x = 25
         list_y = 78
@@ -838,19 +858,30 @@ class ScreenCanvas(QWidget):
             is_selected = (i == self.selected_tweak_idx)
 
             if is_selected:
-                painter.setPen(Qt.PenStyle.NoPen)
-                painter.setBrush(QBrush(QColor(0, 122, 255, 180)))
-                painter.drawRoundedRect(list_x, y, 590, item_h - 4, 6, 6)
+                painter.setPen(QPen(QColor("#00f0ff"), 1.5))
+                painter.setBrush(QColor(30, 41, 59, 220))
+                painter.drawRoundedRect(list_x, y, 590, item_h - 4, 8, 8)
+                painter.fillRect(list_x, y + 4, 4, item_h - 12, QColor("#00f0ff"))
                 painter.setPen(QPen(QColor("#FFFFFF")))
             else:
-                painter.setPen(QPen(theme.list_color if theme else QColor("#E0E0E0")))
+                painter.setPen(QPen(QColor(255, 255, 255, 30), 1))
+                painter.setBrush(QColor(15, 23, 42, 160))
+                painter.drawRoundedRect(list_x, y, 590, item_h - 4, 8, 8)
+                painter.setPen(QPen(QColor("#cbd5e1")))
 
-            painter.setFont(QFont("Segoe UI", 11, QFont.Weight.Bold if is_selected else QFont.Weight.Normal))
-            painter.drawText(QRectF(list_x + 15, y, 290, item_h - 4), Qt.AlignmentFlag.AlignVCenter | Qt.AlignmentFlag.AlignLeft, item["name"])
+            # Tweak 3D Icon
+            icon_id = item.get("icon", "cpu")
+            icon_path = self.theme_mgr.get_icon_path(icon_id, is_app=True)
+            if icon_path and os.path.exists(icon_path):
+                pm = QPixmap(icon_path)
+                painter.drawPixmap(list_x + 10, y + 4, 24, 24, pm)
 
-            painter.setFont(QFont("Segoe UI", 10, QFont.Weight.Normal))
-            val_col = QColor("#4cd964") if ("Enabled" in item["val"] or "Active" in item["val"] or "Running" in item["val"]) else QColor("#FFFFFF")
-            painter.setPen(QPen(val_col if is_selected else val_col.darker(110)))
+            painter.setFont(QFont("Segoe UI", 11, QFont.Weight.Bold if is_selected else QFont.Weight.DemiBold))
+            painter.drawText(QRectF(list_x + 42, y, 290, item_h - 4), Qt.AlignmentFlag.AlignVCenter | Qt.AlignmentFlag.AlignLeft, item["name"])
+
+            painter.setFont(QFont("Segoe UI", 10, QFont.Weight.DemiBold))
+            val_col = QColor("#10b981") if ("Enabled" in item["val"] or "Active" in item["val"] or "1.4" in item["val"]) else QColor("#00f0ff")
+            painter.setPen(QPen(val_col))
             painter.drawText(QRectF(list_x + 310, y, 265, item_h - 4), Qt.AlignmentFlag.AlignVCenter | Qt.AlignmentFlag.AlignRight, item["val"])
 
     def draw_activity_view(self, painter, theme):
