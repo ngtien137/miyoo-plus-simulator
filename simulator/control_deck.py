@@ -443,7 +443,7 @@ class ControlDeck(QWidget):
         self.preview_lbl = None
         self.theme_info_lbl = None
         
-        self.setFixedWidth(460)
+        self.setMinimumWidth(480)
         self.init_ui()
         add_listener(self.retranslate_ui)
 
@@ -473,7 +473,7 @@ class ControlDeck(QWidget):
         self.tabs = QTabWidget()
         self.tabs.setStyleSheet("""
             QTabWidget::pane { border: 1px solid #3a3a3c; border-radius: 6px; background: #1c1c1e; }
-            QTabBar::tab { background: #2c2c2e; color: #aaa; padding: 8px 14px; margin-right: 2px; border-top-left-radius: 4px; border-top-right-radius: 4px; font-size: 11px; }
+            QTabBar::tab { background: #2c2c2e; color: #aaa; padding: 8px 10px; margin-right: 2px; border-top-left-radius: 4px; border-top-right-radius: 4px; font-size: 11px; font-weight: bold; }
             QTabBar::tab:selected { background: #007aff; color: #fff; font-weight: bold; }
             QGroupBox {
                 color: #fff;
@@ -599,6 +599,7 @@ class ControlDeck(QWidget):
     def create_boot_tab(self):
         scroll = QScrollArea()
         scroll.setWidgetResizable(True)
+        scroll.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
         scroll.setStyleSheet("background: transparent; border: none;")
 
         widget = QWidget()
@@ -910,6 +911,7 @@ class ControlDeck(QWidget):
     def create_theme_tab(self):
         scroll = QScrollArea()
         scroll.setWidgetResizable(True)
+        scroll.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
         scroll.setStyleSheet("background: transparent; border: none;")
         
         widget = QWidget()
@@ -1025,6 +1027,7 @@ class ControlDeck(QWidget):
     def create_tweaks_tab(self):
         scroll = QScrollArea()
         scroll.setWidgetResizable(True)
+        scroll.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
         scroll.setStyleSheet("background: transparent; border: none;")
 
         widget = QWidget()
@@ -1098,6 +1101,7 @@ class ControlDeck(QWidget):
     def create_guide_tab(self):
         scroll = QScrollArea()
         scroll.setWidgetResizable(True)
+        scroll.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
         scroll.setStyleSheet("background: transparent; border: none;")
 
         widget = QWidget()

@@ -63,11 +63,11 @@ class MiyooSimulatorWindow(QMainWindow):
         # Left: Handheld Frame + Screen Canvas (Exact 1:1.3758 Miyoo hardware ratio)
         self.canvas = ScreenCanvas(self.theme_mgr, self.sys_data)
         self.frame_widget = HandheldFrame(self.canvas, scale=0.90)
-        layout.addWidget(self.frame_widget)
+        layout.addWidget(self.frame_widget, 0)
 
-        # Right: Control Deck Sidebar
+        # Right: Control Deck Sidebar (Flexible stretch)
         self.control_deck = ControlDeck(self.theme_mgr, self.canvas, self.frame_widget)
-        layout.addWidget(self.control_deck)
+        layout.addWidget(self.control_deck, 1)
 
         # Modern Dark Window Theme
         self.setStyleSheet("""
@@ -83,8 +83,9 @@ class MiyooSimulatorWindow(QMainWindow):
             QSlider::handle:horizontal { background: #ffffff; width: 14px; margin-top: -4px; margin-bottom: -4px; border-radius: 7px; }
         """)
 
-        # Set Window Fixed Size (Seamless Pixel Fit)
-        self.setFixedSize(1090, 824)
+        # Set Window Dimensions (Resizable with responsive layout)
+        self.setMinimumSize(1120, 830)
+        self.resize(1220, 840)
 
     def keyPressEvent(self, event):
         key = event.key()
