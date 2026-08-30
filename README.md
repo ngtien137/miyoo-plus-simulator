@@ -1,142 +1,149 @@
 # 🎮 Miyoo Mini Plus Simulator & MicroSD Studio
 
-![Platform](https://img.shields.io/badge/Platform-Windows-0078D6?logo=windows)
-![Python](https://img.shields.io/badge/Python-3.12+-3776AB?logo=python)
-![Qt6](https://img.shields.io/badge/GUI-PyQt6%20%2F%20Qt6-41CD52?logo=qt)
-![License](https://img.shields.io/badge/License-MIT-blue)
-![Release](https://img.shields.io/badge/Release-Portable%20Standalone%20(No%20Python%20Needed)-success)
+<p align="center">
+  <a href="README.md"><b>English</b></a> | <a href="README.vi.md"><b>Tiếng Việt</b></a>
+</p>
 
-Ứng dụng giả lập phần cứng máy chơi game cầm tay **Miyoo Mini Plus** và Studio quản lý, xem trước, khởi tạo thẻ nhớ MicroSD trực tiếp trên máy tính Windows.
+<p align="center">
+  <img src="https://img.shields.io/badge/Platform-Windows-0078D6?logo=windows" alt="Platform">
+  <img src="https://img.shields.io/badge/Python-3.12+-3776AB?logo=python" alt="Python">
+  <img src="https://img.shields.io/badge/GUI-PyQt6%20%2F%20Qt6-41CD52?logo=qt" alt="Qt6">
+  <img src="https://img.shields.io/badge/License-MIT-blue" alt="License">
+  <img src="https://img.shields.io/badge/Release-Portable_Standalone-success" alt="Release">
+</p>
+
+A 1:1 hardware simulator and universal MicroSD management studio for the **Miyoo Mini Plus** retro handheld console on Windows.
 
 ---
 
-## 📸 Giao diện Ứng dụng (App Screenshot)
+## 📸 Application Preview
 
 ![Miyoo Mini Plus Simulator & Studio Preview](docs/screenshots/app_preview.png)
 
 ---
 
-## ✨ Tính Năng Nổi Bật (Key Features)
+## ✨ Key Features
 
-### 1. 🎮 Giả lập Phần cứng Miyoo Mini Plus 1:1 Pixel-Perfect
-* **Màn hình chuẩn phần cứng:** Mô phỏng đúng tỉ lệ 4:3 độ phân giải gốc 640 x 480 IPS của Miyoo Mini Plus.
-* **4 Màu vỏ Casing thực tế:** Chuyển đổi linh hoạt giữa các phiên bản màu máy:
-  * 🔘 **Retro Grey** (Xám cổ điển Game Boy)
-  * ⬛ **Transparent Black** (Đen khói trong suốt)
-  * ⚪ **Pure White** (Trắng tinh khôi)
-  * 🟣 **Transparent Purple** (Tím Atomic trong suốt)
-* **Tương tác phím vật lý:** Hỗ trợ click chuột trực tiếp vào các phím bấm trên thân máy (D-Pad, A/B/X/Y, START, SELECT, MENU) hoặc sử dụng bàn phím máy tính / tay cầm Gamepad.
+### 1. 🎮 1:1 Pixel-Perfect Miyoo Mini Plus Hardware Simulation
+* **Hardware-Accurate Display:** Precise 4:3 aspect ratio rendering at native $640 	imes 480$ IPS resolution.
+* **4 Authentic Shell Colorways:** Instantly switch between classic shell designs:
+  * 🔘 **Retro Grey** (Classic Game Boy DMG grey)
+  * ⬛ **Transparent Black** (Smoky semi-transparent)
+  * ⚪ **Pure White** (Clean modern white)
+  * 🟣 **Transparent Purple** (Atomic purple semi-transparent)
+* **Physical Button Interactions:** Click buttons directly on the console casing (D-Pad, A/B/X/Y, START, SELECT, MENU) or use keyboard shortcuts / USB gamepads.
 
-### 2. 💾 Quản lý Thẻ nhớ & Chẩn đoán Boot Linux Đa Hệ Điều Hành
-* **Nhận diện tự động siêu tốc:** Quét thẻ nhớ cắm ngoài qua Windows Kernel API (GetLogicalDrives) chỉ trong 0.01 mili-giây.
-* **Phân tích cấu trúc Boot:**
-  * ⚡ **Custom OS:** Nhận diện và chạy toàn bộ hệ sinh thái Custom OS từ thẻ nhớ.
-  * ⚙️ **Stock OS:** Chế độ hiển thị giao diện xuất xưởng từ chip nhớ NAND Flash.
-  * 🔲 **MinUI / Koriki / Batocera / Allium:** Tương thích và kiểm tra file hệ điều hành tương ứng.
-  * ⚠️ **Recovery Mode:** Tự động cảnh báo khi thẻ nhớ chưa được cắm hoặc rỗng.
+### 2. 💾 Universal MicroSD Manager & Multi-OS Linux Boot Diagnostics
+* **High-Speed Drive Detection:** Scans inserted MicroSD cards / USB Card Readers via Windows Kernel API (`GetLogicalDrives`) in 0.01 ms.
+* **Multi-OS Boot Analyzer:**
+  * ⚡ **Custom OS:** Detects custom firmware ecosystem directly from MicroSD.
+  * ⚙️ **Stock OS:** Factory firmware interface emulation from internal NAND Flash.
+  * 🔲 **MinUI / Koriki / Batocera / Allium:** Compatible boot structure inspection.
+  * ⚠️ **Recovery / No SD:** Visual alerts when SD card is missing or unformatted.
 
-### 3. 🎨 Theme Studio & Xem trước Giao diện Trực quan
-* **Đọc trực tiếp từ MicroSD:** Tự động quét toàn bộ thư mục Themes/ của thẻ nhớ đang chọn.
-* **Live Theme Preview:** Xem trước ảnh nền (background.png), icon hệ thống, thanh điều hướng, font chữ và bảng màu (Title, Battery, Hint).
-* **Trình phát âm thanh (Audio Engine):** Hỗ trợ phát nhạc nền (BGM) và hiệu ứng âm thanh (SFX: Nav, Select, Back) theo từng theme.
-* **Xuất Theme 1-Click:** Xuất ngược theme bạn đã chỉnh sửa vào thẻ nhớ MicroSD.
+### 3. 🎨 Live Theme Studio & UI Customizer
+* **Direct MicroSD Theme Scanning:** Live index of all themes located in `Themes/` on the selected card.
+* **Live Theme Preview:** Instant preview of wallpapers (`background.png`), system icons, navigation bars, fonts, and color palettes (Title, Battery, Hints).
+* **Integrated Audio Engine:** Real-time playback of background music (BGM) and navigation sound effects (SFX: Nav, Select, Back).
+* **1-Click Theme Export:** Export customized themes directly back to the MicroSD card.
 
-### 4. 🕹️ Quản lý ROM & Trình duyệt Game Đa Hệ Máy
-* Tự động duyệt và lập chỉ mục ROM theo từng folder hệ máy: GBA, PS, SFC, FC, NDS, ARCADE, PICO, MD, GBC, GB, NEOGEO, PORTS.
-* Hỗ trợ ghim game Yêu thích (**Favorites**) và trình chuyển đổi game nhanh (**Game Switcher**).
+### 4. 🕹️ Multi-System ROM Scanner & Game Switcher
+* Automatically indexes ROMs across supported emulator directories: `GBA`, `PS`, `SFC`, `FC`, `NDS`, `ARCADE`, `PICO`, `MD`, `GBC`, `GB`, `NEOGEO`, `PORTS`.
+* Fast **Favorites** pinning and interactive **Game Switcher** overlay.
 
-### 5. 🛠️ Công cụ Khởi tạo & Định dạng Thẻ nhớ An toàn
-* Tự động khởi tạo cấu trúc thư mục chuẩn Miyoo:
-  `
+### 5. 🛠️ Safe SD Card Initializer & Formatting Tool
+* Automatically initializes the official Miyoo folder structure:
+  ```
   SD_CARD/
   ├── Roms/          (GBA, PS, SFC, FC, NDS, MD, ARCADE...)
-  ├── Saves/         (Lưu game & State)
-  ├── BIOS/          (BIOS các hệ máy)
-  ├── Themes/        (Giao diện tùy biến)
-  └── Screenshots/   (Ảnh chụp màn hình)
-  `
-* **Chế độ bảo vệ dữ liệu:** Tự động sao lưu ROMs, Saves, BIOS cũ sang thư mục an toàn trước khi định dạng thẻ.
+  ├── Saves/         (Game saves & save states)
+  ├── BIOS/          (System BIOS files)
+  ├── Themes/        (Custom themes)
+  └── Screenshots/   (In-game screenshots)
+  ```
+* **Data Protection Mode:** Safely backs up existing ROMs, Saves, and BIOS files before reformatting.
 
 ---
 
-## 🚀 Hướng Dẫn Sử Dụng (Quick Start)
+## 🚀 Quick Start Guide
 
-### Cách 1: Sử dụng Bản Portable (Khuyên dùng - Không cần cài Python)
-1. Mở thư mục **windows/**.
-2. Click đúp vào file **MiyooPlusSimulator.exe**.
-3. Ứng dụng sẽ khởi động ngay lập tức mà không cần cài đặt thêm bất kỳ phần mềm nào.
+### Option 1: Standalone Portable Release (Recommended — No Python Required)
+1. Navigate to the **`windows/`** folder.
+2. Double-click **`MiyooPlusSimulator.exe`**.
+3. The application launches instantly with zero setup required.
 
-### Cách 2: Chạy từ Mã Nguồn (Dành cho Lập trình viên)
-Yêu cầu: Python 3.10+ trở lên.
+### Option 2: Run from Source (For Developers)
+Requires Python 3.10+.
 
-`ash
-# 1. Cài đặt các thư viện cần thiết
+```bash
+# 1. Install dependencies
 pip install PyQt6 pygame
 
-# 2. Khởi chạy ứng dụng
+# 2. Launch the application
 python run.py
-`
+```
 
 ---
 
-## ⌨️ Bảng Phím Tắt Điều Khiển (Controls Mapping)
+## ⌨️ Controls & Keybindings Mapping
 
-| Phím Bàn Phím | Nút Miyoo Tương Ứng | Chức Năng |
+| Keyboard Key | Miyoo Button | Action |
 | :--- | :--- | :--- |
-| W / A / S / D hoặc Phím Mũi Tên | **D-Pad** | Di chuyển lên / xuống / trái / phải |
-| J hoặc Enter | **Nút A** | Chọn / Mở Game / Vào mục |
-| K hoặc Escape | **Nút B** | Quay lại / Hủy |
-| U | **Nút X** | Đánh dấu Yêu thích / Tùy chọn |
-| I | **Nút Y** | Menu phụ |
-| M hoặc Space | **Nút MENU** | Mở trình chuyển game nhanh (Game Switcher) |
-| Q / E | **L1 / R1** | Chuyển Tab danh mục trước / sau |
-| Chuột trái | **Click nút trên thân máy** | Nhấn trực tiếp vào bất kỳ nút nào trên vỏ máy |
+| `W` / `A` / `S` / `D` or `Arrow Keys` | **D-Pad** | Navigate Up / Down / Left / Right |
+| `J` or `Enter` | **A Button** | Select / Open Game / Confirm |
+| `K` or `Escape` | **B Button** | Back / Cancel |
+| `U` | **X Button** | Toggle Favorite / Secondary Action |
+| `I` | **Y Button** | Context Menu |
+| `M` or `Space` | **MENU Button** | Open Game Switcher Overlay |
+| `Q` / `E` | **L1 / R1** | Switch Categories / Previous & Next Tab |
+| `Left Mouse Click` | **Physical Casing Buttons** | Direct click on any button on the console casing |
 
 ---
 
-## 📁 Cấu Trúc Mã Nguồn Dự Án
+## 📁 Repository Structure
 
-`
+```
 miyoo-plus-simulator/
-├── assets/                  # Tài nguyên icons vector, app icons
+├── assets/                  # Vector icons & app assets
 │   └── icons/
-├── docs/                    # Tài liệu và hình ảnh hướng dẫn
+├── docs/                    # Documentation & screenshots
 │   └── screenshots/
-├── simulator/               # Mã nguồn lõi ứng dụng
-│   ├── control_deck.py      # Bảng điều khiển Studio bên phải (4 Tabs)
-│   ├── handheld_frame.py    # Dựng khung vỏ máy 4 màu và nút bấm vật lý
-│   ├── main.py              # Cửa sổ chính và kết nối các thành phần
-│   ├── models.py            # Quản lý dữ liệu hệ thống, quét ROMs & Boot loader
-│   ├── screen_canvas.py     # Engine vẽ màn hình 640x480 và carousel
-│   └── theme_manager.py     # Quản lý nạp theme và audio BGM/SFX
-├── tests/                   # Bộ kiểm thử tự động (Regression Tests)
+├── simulator/               # Core application source code
+│   ├── control_deck.py      # Studio sidebar & 4-tab control panel
+│   ├── handheld_frame.py    # 4-color handheld casing & physical button hitboxes
+│   ├── main.py              # Main window & component integration
+│   ├── models.py            # Data models, ROM indexing & boot diagnostics
+│   ├── screen_canvas.py     # 640x480 pixel-perfect canvas & UI renderers
+│   └── theme_manager.py     # Theme loader & BGM/SFX audio engine
+├── tests/                   # Automated regression test suite
 │   └── test_simulator.py
-├── tools/                   # Công cụ đóng gói bản Windows Portable
+├── tools/                   # Windows portable build automation
 │   ├── build_exe.py
 │   └── build_exe.bat
-├── windows/                 # Thư mục phát hành Portable chạy ngay (.exe)
-│   ├── _internal/           # Thư viện DLL đồ họa và máy ảo nhị phân
+├── windows/                 # Standalone Windows portable distribution
+│   ├── _internal/           # Compiled binary DLLs & Python runtime
 │   ├── assets/
 │   ├── LICENSE
 │   ├── README.md
 │   └── MiyooPlusSimulator.exe
-├── run.py                   # Điểm khởi chạy chương trình
-├── README.md
+├── run.py                   # Python entry point
+├── README.md                # English Documentation (Default)
+├── README.vi.md             # Vietnamese Documentation
 └── LICENSE
-`
+```
 
 ---
 
-## 🛠️ Đóng Gói Lại Bản Windows (.exe)
+## 🛠️ Rebuilding the Windows Portable (.exe)
 
-Nếu bạn thực hiện thay đổi trong mã nguồn và muốn đóng gói lại bản Windows Portable:
-`ash
+To rebuild the standalone Windows distribution after making changes:
+```bash
 python tools/build_exe.py
-`
-Hoặc click đúp vào file 	ools/build_exe.bat. Kết quả sẽ được cập nhật tự động vào thư mục windows/.
+```
+Or double-click `tools/build_exe.bat`. The updated executable and assets will be output to `windows/`.
 
 ---
 
-## 📄 Bản Quyền (License)
+## 📄 License
 
-Dự án được phát hành dưới giấy phép mã nguồn mở **MIT License**. Bạn có toàn quyền sử dụng, chỉnh sửa và phân phối tự do.
+This project is licensed under the **MIT License**. You are free to use, modify, and distribute it.
