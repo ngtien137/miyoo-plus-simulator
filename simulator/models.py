@@ -77,6 +77,7 @@ class SystemData:
 
         diag.exists = True
         tmp_update_path = os.path.join(path, ".tmp_update")
+        kayzit_path = os.path.join(path, ".kayzit")
         miyoo_path = os.path.join(path, "miyoo")
         minui_path = os.path.join(path, ".minui")
         koriki_path = os.path.join(path, ".koriki")
@@ -96,7 +97,11 @@ class SystemData:
                 diag.theme_count = 0
 
         # Multi-OS Detection Pipeline for Miyoo Mini Plus
-        if diag.has_tmp_update and diag.has_miyoo:
+        if os.path.exists(kayzit_path):
+            diag.boot_mode = "CUSTOM_OS"
+            diag.onion_version = "Kayzit OS v1.0"
+            diag.status_message = "⚡ Kayzit OS (Next-Gen 3D Glass) detected on MicroSD! Running 60FPS ecosystem."
+        elif diag.has_tmp_update and diag.has_miyoo:
             diag.boot_mode = "CUSTOM_OS"
             diag.onion_version = "v4.3"
             diag.status_message = "⚡ Enhanced Custom OS detected on MicroSD! Running full multi-system ecosystem."
