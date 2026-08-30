@@ -67,7 +67,7 @@ class DeployWorker(QThread):
                         pass
             elif self.mode == "preserve":
                 self.progress.emit(25, tr("prog_clean_sys"))
-                system_dirs = [".tmp_update", "miyoo", "miyoo354", ".kayzit", "RetroArch", ".tmp_update.bak", ".minui", ".koriki", ".allium"]
+                system_dirs = [".tmp_update", "miyoo", "miyoo354", ".kayzit", "Themes", "App", "RetroArch", ".tmp_update.bak", ".minui", ".koriki", ".allium"]
                 for sdir in system_dirs:
                     ipath = os.path.join(self.target_path, sdir)
                     if os.path.exists(ipath):
