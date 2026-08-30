@@ -266,10 +266,13 @@ class ScreenCanvas(QWidget):
         bg_pix = theme.get_pixmap("background.png") if theme else None
         if bg_pix and not bg_pix.isNull():
             painter.drawPixmap(0, 0, 640, 480, bg_pix)
+            # Soft dark frosted scrim so UI elements and icons have maximum contrast
+            painter.fillRect(0, 0, 640, 480, QColor(5, 8, 16, 135))
         else:
-            grad = QLinearGradient(0, 0, 0, 480)
-            grad.setColorAt(0, QColor("#1a1a28"))
-            grad.setColorAt(1, QColor("#0d0d15"))
+            grad = QLinearGradient(0, 0, 640, 480)
+            grad.setColorAt(0.0, QColor("#04070e"))
+            grad.setColorAt(0.5, QColor("#090e1c"))
+            grad.setColorAt(1.0, QColor("#050a14"))
             painter.fillRect(0, 0, 640, 480, grad)
 
         # 2. View Content
@@ -313,169 +316,212 @@ class ScreenCanvas(QWidget):
                 self.draw_stock_menu_dialog(painter)
 
     def draw_topbar(self, painter, theme):
-        boot_mode = self.sys_data.boot_diag.boot_mode
-        # Base dark bar
-        painter.fillRect(0, 0, 640, 36, QColor(0, 0, 0, 140))
-
-        if boot_mode == 'STOCK_OS':
-            # Stock badge in center
-            painter.setPen(QPen(QColor("#f59e0b")))
-            painter.setFont(QFont("Segoe UI", 11, QFont.Weight.Bold))
-            painter.drawText(QRectF(150, 0, 340, 36), Qt.AlignmentFlag.AlignCenter, "⚙️ STOCK OS (NAND FLASH)")
-        else:
-            top_pix = theme.get_pixmap("miyoo-topbar.png") if theme else None
-            if top_pix and not top_pix.isNull():
-                if top_pix.width() >= 600:
-                    painter.drawPixmap(0, 0, 640, 36, top_pix)
-                else:
-                    lw = min(120, top_pix.width())
-                    lh = int(top_pix.height() * (lw / top_pix.width()))
-                    painter.drawPixmap((640 - lw) // 2, (36 - lh) // 2, lw, lh, top_pix)
+        # Frosted glass top bar
+        painter.fillRect(0, 0, 640, 36, QColor(15, 23, 42, 220))
+        painter.fillRect(0, 35, 640, 1, QColor(0, 240, 255, 100))
 
         # Time
-        now_str = datetime.datetime.now().strftime("%H:%M")
-        painter.setPen(QPen(theme.title_color if (theme and boot_mode in ['CUSTOM_OS', 'ONION_OS']) else QColor("#FFFFFF")))
-        font = QFont("Segoe UI", 11, QFont.Weight.Bold)
-        painter.setFont(font)
-        painter.drawText(QRectF(18, 0, 80, 36), Qt.AlignmentFlag.AlignVCenter | Qt.AlignmentFlag.AlignLeft, now_str)
+        now = datetime.datetime.now().strftime("%H:%M")
+        painter.setFont(QFont("Segoe UI", 11, QFont.Weight.DemiBold))
+        painter.setPen(QPen(QColor("#FFFFFF")))
+        painter.drawText(QRectF(25, 6, 80, 24), Qt.AlignmentFlag.AlignVCenter | Qt.AlignmentFlag.AlignLeft, now)
 
-        # Wi-Fi icon
-        wifi_pix = theme.get_pixmap("icon-wifi-connected.png") if (theme and boot_mode in ['CUSTOM_OS', 'ONION_OS']) else None
-        if wifi_pix and not wifi_pix.isNull():
-            painter.drawPixmap(505, 8, 20, 20, wifi_pix)
-        else:
-            painter.setPen(QPen(QColor("#4cd964"), 2))
-            painter.drawArc(505, 12, 16, 16, 45 * 16, 90 * 16)
-            painter.drawArc(508, 16, 10, 10, 45 * 16, 90 * 16)
-            painter.drawPoint(513, 22)
+        # Logo / OS Title
+        painter.setFont(QFont("Segoe UI", 12, QFont.Weight.Black))
+        painter.setPen(QPen(QColor("#00f0ff")))
+        painter.drawText(QRectF(0, 6, 640, 24), Qt.AlignmentFlag.AlignCenter, "⚡ KAYZIT BASIC")
 
-        # Battery icon & Percentage
-        bat_x = 535
-        bat_color = theme.bat_color if (theme and boot_mode in ['CUSTOM_OS', 'ONION_OS']) else QColor("#FFFFFF")
-        
-        painter.setPen(QPen(bat_color))
+        # Battery & Wi-Fi
+        bat_level = self.battery_level
+        bat_col = QColor("#10b981") if bat_level > 20 else QColor("#ef4444")
         painter.setFont(QFont("Segoe UI", 10, QFont.Weight.Bold))
-        painter.drawText(QRectF(bat_x - 10, 0, 50, 36), Qt.AlignmentFlag.AlignVCenter | Qt.AlignmentFlag.AlignRight, f"{self.battery_level}%")
+        painter.setPen(QPen(bat_col))
+        painter.drawText(QRectF(520, 6, 50, 24), Qt.AlignmentFlag.AlignVCenter | Qt.AlignmentFlag.AlignRight, f"{bat_level}%")
 
-        bx = bat_x + 46
-        by = 11
-        painter.setPen(QPen(bat_color, 1.5))
-        painter.drawRoundedRect(bx, by, 26, 14, 3, 3)
-        painter.fillRect(bx + 26, by + 4, 2, 6, bat_color)
-        fill_w = int((self.battery_level / 100.0) * 22)
-        fill_color = QColor("#4cd964") if self.battery_level > 20 else QColor("#ff3b30")
-        painter.fillRect(bx + 2, by + 2, fill_w, 10, fill_color)
+        # Battery Icon
+        bx, by = 576, 12
+        painter.setPen(QPen(QColor("#cbd5e1"), 1.2))
+        painter.setBrush(Qt.BrushStyle.NoBrush)
+        painter.drawRoundedRect(bx, by, 24, 12, 2, 2)
+        painter.fillRect(bx + 25, by + 3, 2, 6, QColor("#cbd5e1"))
+        
+        fill_w = max(2, int(20 * (bat_level / 100.0)))
+        painter.fillRect(bx + 2, by + 2, fill_w, 8, bat_col)
 
     def draw_bottom_bar(self, painter, theme):
-        boot_mode = self.sys_data.boot_diag.boot_mode
-        tips_pix = theme.get_pixmap("tips-bar-bg.png") if (theme and boot_mode in ['CUSTOM_OS', 'ONION_OS']) else None
-        if tips_pix and not tips_pix.isNull():
-            painter.drawPixmap(0, 442, 640, 38, tips_pix)
-        else:
-            painter.fillRect(0, 442, 640, 38, QColor(0, 0, 0, 160))
+        # Frosted glass bottom dock
+        painter.fillRect(0, 442, 640, 38, QColor(15, 23, 42, 230))
+        painter.fillRect(0, 442, 640, 1, QColor(255, 255, 255, 30))
 
-        painter.setFont(QFont("Segoe UI", 10, QFont.Weight.Normal))
-        painter.setPen(QPen(theme.hint_color if (theme and boot_mode in ['CUSTOM_OS', 'ONION_OS']) else QColor("#DDDDDD")))
-        
         v = self.current_view
+        boot_mode = self.sys_data.boot_diag.boot_mode
         if boot_mode == 'STOCK_OS':
-            hints = [("A", "Select"), ("B", "Back"), ("💡", "Stock Mode: No OnionOS SD")]
+            hints = [("A", "Select"), ("B", "Back"), ("💡", "Stock Mode: No SD")]
         elif v == 'MAIN_CAROUSEL':
-            hints = [("A", "Enter"), ("MENU", "Game Switcher"), ("L/R", "Tabs")]
+            hints = [("A", "Open"), ("MENU", "Switcher"), ("L/R", "Tabs")]
         elif v == 'GAME_LIST':
-            hints = [("A", "Play"), ("B", "Back"), ("X", "Favorite"), ("MENU", "Switcher")]
+            hints = [("A", "Play"), ("B", "Back"), ("X", "Star"), ("MENU", "Switcher")]
         elif v == 'TWEAKS':
             hints = [("A", "Toggle"), ("B", "Back")]
         else:
             hints = [("A", "Select"), ("B", "Back"), ("MENU", "Switcher")]
 
-        hx = 20
+        hx = 25
         for btn, label in hints:
-            btn_w = 24 if len(btn) <= 2 else (44 if len(btn) <= 4 else 56)
-            painter.setPen(Qt.PenStyle.NoPen)
-            painter.setBrush(QBrush(QColor(255, 255, 255, 45)))
+            btn_w = 26 if len(btn) <= 2 else (50 if len(btn) <= 4 else 60)
+            painter.setPen(QPen(QColor(0, 240, 255, 120), 1))
+            painter.setBrush(QColor(30, 41, 59, 200))
             painter.drawRoundedRect(hx, 450, btn_w, 22, 5, 5)
             
-            painter.setPen(QPen(QColor("#FFFFFF")))
+            painter.setPen(QPen(QColor("#00f0ff")))
+            painter.setFont(QFont("Segoe UI", 9, QFont.Weight.Bold))
             painter.drawText(QRectF(hx, 450, btn_w, 22), Qt.AlignmentFlag.AlignCenter, btn)
             
-            painter.setPen(QPen(QColor("#CCCCCC")))
-            painter.drawText(QRectF(hx + btn_w + 6, 450, 90, 22), Qt.AlignmentFlag.AlignVCenter | Qt.AlignmentFlag.AlignLeft, label)
-            hx += btn_w + 100
+            painter.setPen(QPen(QColor("#cbd5e1")))
+            painter.setFont(QFont("Segoe UI", 10, QFont.Weight.DemiBold))
+            painter.drawText(QRectF(hx + btn_w + 6, 450, 95, 22), Qt.AlignmentFlag.AlignVCenter | Qt.AlignmentFlag.AlignLeft, label)
+            hx += btn_w + 105
 
     def draw_main_carousel(self, painter, theme):
         tabs = [
-            ("Favorites", "ic-favorite-f.png", "ic-favorite-n.png", "favorite"),
-            ("Games", "ic-game-f.png", "ic-game-n.png", "game"),
-            ("Apps", "ic-app-f.png", "ic-app-n.png", "app"),
-            ("Expert", "ic-recent-f.png", "ic-recent-n.png", "retroarch"),
-            ("Settings", "ic-setting-f.png", "ic-setting-n.png", "setting")
+            ("Favorites", "favorites", "Quick Access to Starred Games"),
+            ("Games Hub", "games", "Browse All Consoles & ROMs"),
+            ("App Studio", "apps", "Cloud Sync, Tools & App Store"),
+            ("Retro Cores", "expert", "Arcade Classics & Standalone Engines"),
+            ("Kayzit Settings", "settings", "Overclock 1.4GHz, Screen & Haptics")
         ]
 
-        title = tabs[self.current_tab][0]
-        painter.setPen(QPen(theme.title_color if theme else QColor("#FFFFFF")))
-        painter.setFont(QFont("Segoe UI", 24, QFont.Weight.Bold))
-        painter.drawText(QRectF(0, 65, 640, 36), Qt.AlignmentFlag.AlignCenter, title)
+        title, raw_name, subtitle = tabs[self.current_tab]
+
+        # 1. Header Title & Subtitle
+        painter.setPen(QPen(QColor("#00f0ff")))
+        painter.setFont(QFont("Segoe UI", 22, QFont.Weight.Black))
+        painter.drawText(QRectF(0, 48, 640, 32), Qt.AlignmentFlag.AlignCenter, title.upper())
+
+        painter.setPen(QPen(QColor("#94a3b8")))
+        painter.setFont(QFont("Segoe UI", 11, QFont.Weight.DemiBold))
+        painter.drawText(QRectF(0, 80, 640, 22), Qt.AlignmentFlag.AlignCenter, subtitle)
 
         center_x = 320
-        center_y = 225
-        spacing = 110
 
-        for i, (tab_name, icon_f, icon_n, raw_name) in enumerate(tabs):
-            offset_idx = i - self.current_tab
-            x = center_x + (offset_idx * spacing) - 40
-            y = center_y - 40
-            
+        # 2. Render 3D Cards for Carousel Items
+        for i, (tab_name, t_icon_name, _) in enumerate(tabs):
+            offset = i - self.current_tab
             is_active = (i == self.current_tab)
-            icon_file = icon_f if is_active else icon_n
-            pix = theme.get_pixmap(icon_file) if theme else None
-            
+
+            # Resolve 3D icon
+            icon_path = self.theme_mgr.get_icon_path(t_icon_name, is_app=True)
+            pix = None
+            if icon_path and os.path.exists(icon_path):
+                pix = QPixmap(icon_path)
             if not pix or pix.isNull():
-                fallback_path = self.theme_mgr.get_icon_path(raw_name, is_app=True)
-                if fallback_path and os.path.exists(fallback_path):
-                    pix = QPixmap(fallback_path)
+                pix = theme.get_pixmap(f"{t_icon_name}.png") if theme else None
 
             if is_active:
-                painter.setPen(Qt.PenStyle.NoPen)
-                painter.setBrush(QBrush(QColor(255, 255, 255, 30)))
-                painter.drawRoundedRect(x - 10, y - 10, 100, 100, 20, 20)
-                
-                if pix and not pix.isNull():
-                    painter.drawPixmap(x, y, 80, 80, pix)
-                else:
-                    painter.setBrush(QBrush(QColor("#007aff")))
-                    painter.drawRoundedRect(x, y, 80, 80, 16, 16)
-                    painter.setPen(QPen(QColor("#FFFFFF")))
-                    painter.setFont(QFont("Segoe UI", 12, QFont.Weight.Bold))
-                    painter.drawText(QRectF(x, y, 80, 80), Qt.AlignmentFlag.AlignCenter, tab_name[:3])
-            else:
-                if -2 <= offset_idx <= 2:
-                    if pix and not pix.isNull():
-                        painter.setOpacity(0.55)
-                        painter.drawPixmap(x + 10, y + 10, 60, 60, pix)
-                        painter.setOpacity(1.0)
-                    else:
-                        painter.setOpacity(0.4)
-                        painter.setBrush(QBrush(QColor("#555555")))
-                        painter.drawRoundedRect(x + 10, y + 10, 60, 60, 12, 12)
-                        painter.setOpacity(1.0)
+                # Active Center 3D Glass Hero Card
+                card_w = 200
+                card_h = 210
+                cx = center_x - (card_w // 2)
+                cy = 108
 
-        dot_y = 350
-        for i in range(len(tabs)):
-            dx = center_x - (len(tabs) * 12) + (i * 24)
-            if i == self.current_tab:
+                # Drop Shadow
+                sh_grad = QRadialGradient(center_x, cy + card_h + 4, 110)
+                sh_grad.setColorAt(0.0, QColor(0, 0, 0, 180))
+                sh_grad.setColorAt(1.0, QColor(0, 0, 0, 0))
                 painter.setPen(Qt.PenStyle.NoPen)
-                painter.setBrush(QBrush(QColor("#FFFFFF")))
-                painter.drawEllipse(dx, dot_y, 10, 10)
+                painter.setBrush(sh_grad)
+                painter.drawEllipse(QRectF(cx - 10, cy + card_h - 10, card_w + 20, 24))
+
+                # 3D Glass Card Body
+                c_grad = QLinearGradient(cx, cy, cx + card_w, cy + card_h)
+                c_grad.setColorAt(0.0, QColor(30, 41, 59, 235))
+                c_grad.setColorAt(1.0, QColor(15, 23, 42, 245))
+                
+                painter.setPen(QPen(QColor("#00f0ff"), 1.8))
+                painter.setBrush(c_grad)
+                painter.drawRoundedRect(QRectF(cx, cy, card_w, card_h), 16, 16)
+
+                # Specular Glare Reflection at Top
+                g_grad = QLinearGradient(cx, cy, cx, cy + 60)
+                g_grad.setColorAt(0.0, QColor(255, 255, 255, 70))
+                g_grad.setColorAt(1.0, QColor(255, 255, 255, 0))
+                painter.setPen(Qt.PenStyle.NoPen)
+                painter.setBrush(g_grad)
+                painter.drawRoundedRect(QRectF(cx + 2, cy + 2, card_w - 4, 55), 14, 14)
+
+                # 3D Icon Image
+                icon_size = 96
+                ix = cx + (card_w - icon_size) // 2
+                iy = cy + 18
+                if pix and not pix.isNull():
+                    painter.drawPixmap(ix, iy, icon_size, icon_size, pix.scaled(icon_size, icon_size, Qt.AspectRatioMode.KeepAspectRatio, Qt.TransformationMode.SmoothTransformation))
+
+                # Title inside Card
+                painter.setPen(QPen(QColor("#FFFFFF")))
+                painter.setFont(QFont("Segoe UI", 13, QFont.Weight.Bold))
+                painter.drawText(QRectF(cx + 10, cy + 124, card_w - 20, 24), Qt.AlignmentFlag.AlignCenter, tab_name)
+
+                # Action Capsule Pill
+                pill_w, pill_h = 120, 24
+                px = cx + (card_w - pill_w) // 2
+                py = cy + 158
+                p_grad = QLinearGradient(px, py, px + pill_w, py + pill_h)
+                p_grad.setColorAt(0.0, QColor("#0284c7"))
+                p_grad.setColorAt(1.0, QColor("#00f0ff"))
+                painter.setPen(Qt.PenStyle.NoPen)
+                painter.setBrush(p_grad)
+                painter.drawRoundedRect(QRectF(px, py, pill_w, pill_h), 12, 12)
+
+                painter.setPen(QPen(QColor("#0f172a")))
+                painter.setFont(QFont("Segoe UI", 9, QFont.Weight.Black))
+                painter.drawText(QRectF(px, py, pill_w, pill_h), Qt.AlignmentFlag.AlignCenter, "PRESS [A] OPEN")
+
+            elif -2 <= offset <= 2:
+                # Flanking Side Cards
+                card_w = 115
+                card_h = 135
+                cx = center_x + (offset * 180) - (card_w // 2)
+                cy = 145
+
+                painter.setOpacity(0.45)
+                painter.setPen(QPen(QColor(255, 255, 255, 40), 1))
+                painter.setBrush(QColor(15, 23, 42, 180))
+                painter.drawRoundedRect(QRectF(cx, cy, card_w, card_h), 12, 12)
+
+                icon_size = 54
+                ix = cx + (card_w - icon_size) // 2
+                iy = cy + 18
+                if pix and not pix.isNull():
+                    painter.drawPixmap(ix, iy, icon_size, icon_size, pix.scaled(icon_size, icon_size, Qt.AspectRatioMode.KeepAspectRatio, Qt.TransformationMode.SmoothTransformation))
+
+                painter.setPen(QPen(QColor("#e2e8f0")))
+                painter.setFont(QFont("Segoe UI", 10, QFont.Weight.DemiBold))
+                painter.drawText(QRectF(cx + 5, cy + 82, card_w - 10, 22), Qt.AlignmentFlag.AlignCenter, tab_name)
+                painter.setOpacity(1.0)
+
+        # 3. Bottom Pagination Indicator (Capsule + Dots)
+        dot_y = 338
+        total_w = len(tabs) * 20 + 16
+        start_x = center_x - (total_w // 2)
+
+        cur_x = start_x
+        for i in range(len(tabs)):
+            if i == self.current_tab:
+                # Glowing capsule
+                painter.setPen(Qt.PenStyle.NoPen)
+                painter.setBrush(QColor("#00f0ff"))
+                painter.drawRoundedRect(QRectF(cur_x, dot_y, 22, 6), 3, 3)
+                cur_x += 28
             else:
                 painter.setPen(Qt.PenStyle.NoPen)
-                painter.setBrush(QBrush(QColor(255, 255, 255, 80)))
-                painter.drawEllipse(dx + 2, dot_y + 2, 6, 6)
+                painter.setBrush(QColor(255, 255, 255, 70))
+                painter.drawEllipse(QRectF(cur_x, dot_y, 6, 6))
+                cur_x += 16
 
     def draw_emu_list(self, painter, theme):
-        painter.setPen(QPen(theme.title_color if theme else QColor("#FFFFFF")))
-        painter.setFont(QFont("Segoe UI", 16, QFont.Weight.Bold))
-        painter.drawText(QRectF(25, 46, 350, 28), Qt.AlignmentFlag.AlignVCenter | Qt.AlignmentFlag.AlignLeft, "Consoles & Systems")
+        painter.setPen(QPen(QColor("#00f0ff")))
+        painter.setFont(QFont("Segoe UI", 16, QFont.Weight.Black))
+        painter.drawText(QRectF(25, 46, 350, 28), Qt.AlignmentFlag.AlignVCenter | Qt.AlignmentFlag.AlignLeft, "🎮 CONSOLES & SYSTEMS")
 
         list_x = 25
         list_y = 78
@@ -493,27 +539,27 @@ class ScreenCanvas(QWidget):
             is_selected = (i == self.selected_emu_idx)
 
             if is_selected:
-                hl_pix = theme.get_pixmap("bg-game-item-f.png") if theme else None
-                if hl_pix and not hl_pix.isNull():
-                    painter.drawPixmap(list_x, y, 350, item_h - 4, hl_pix)
-                else:
-                    painter.setPen(Qt.PenStyle.NoPen)
-                    painter.setBrush(QBrush(QColor(0, 122, 255, 180)))
-                    painter.drawRoundedRect(list_x, y, 350, item_h - 4, 8, 8)
+                painter.setPen(QPen(QColor("#00f0ff"), 1.5))
+                painter.setBrush(QColor(30, 41, 59, 220))
+                painter.drawRoundedRect(list_x, y, 350, item_h - 4, 10, 10)
+                painter.fillRect(list_x, y + 6, 4, item_h - 16, QColor("#00f0ff"))
                 painter.setPen(QPen(QColor("#FFFFFF")))
             else:
-                painter.setPen(QPen(theme.list_color if theme else QColor("#E0E0E0")))
+                painter.setPen(QPen(QColor(255, 255, 255, 30), 1))
+                painter.setBrush(QColor(15, 23, 42, 160))
+                painter.drawRoundedRect(list_x, y, 350, item_h - 4, 10, 10)
+                painter.setPen(QPen(QColor("#cbd5e1")))
 
             icon_path = self.theme_mgr.get_icon_path(emu.icon_id)
             if icon_path and os.path.exists(icon_path):
                 pm = QPixmap(icon_path)
-                painter.drawPixmap(list_x + 8, y + 7, 30, 30, pm)
+                painter.drawPixmap(list_x + 10, y + 6, 32, 32, pm)
 
-            painter.setFont(QFont("Segoe UI", 12, QFont.Weight.Bold if is_selected else QFont.Weight.Normal))
-            painter.drawText(QRectF(list_x + 46, y, 220, item_h - 4), Qt.AlignmentFlag.AlignVCenter | Qt.AlignmentFlag.AlignLeft, emu.name)
+            painter.setFont(QFont("Segoe UI", 12, QFont.Weight.Bold if is_selected else QFont.Weight.DemiBold))
+            painter.drawText(QRectF(list_x + 50, y, 220, item_h - 4), Qt.AlignmentFlag.AlignVCenter | Qt.AlignmentFlag.AlignLeft, emu.name)
             
-            painter.setFont(QFont("Segoe UI", 10, QFont.Weight.Normal))
-            painter.setPen(QPen(QColor(255, 255, 255, 180) if is_selected else QColor(160, 160, 160)))
+            painter.setFont(QFont("Segoe UI", 10, QFont.Weight.DemiBold))
+            painter.setPen(QPen(QColor("#00f0ff") if is_selected else QColor("#94a3b8")))
             painter.drawText(QRectF(list_x + 265, y, 75, item_h - 4), Qt.AlignmentFlag.AlignVCenter | Qt.AlignmentFlag.AlignRight, f"{len(emu.games)} roms")
 
         cur_emu = self.sys_data.emulators[self.selected_emu_idx]
@@ -522,8 +568,12 @@ class ScreenCanvas(QWidget):
         card_w = 220
         card_h = 336
         
-        painter.setPen(Qt.PenStyle.NoPen)
-        painter.setBrush(QBrush(QColor(0, 0, 0, 140)))
+        # 3D Glass Preview Card
+        painter.setPen(QPen(QColor("#00f0ff"), 1.2))
+        c_grad = QLinearGradient(card_x, card_y, card_x + card_w, card_y + card_h)
+        c_grad.setColorAt(0.0, QColor(30, 41, 59, 230))
+        c_grad.setColorAt(1.0, QColor(15, 23, 42, 245))
+        painter.setBrush(c_grad)
         painter.drawRoundedRect(card_x, card_y, card_w, card_h, 14, 14)
 
         big_icon_path = self.theme_mgr.get_icon_path(cur_emu.icon_id)
@@ -532,20 +582,20 @@ class ScreenCanvas(QWidget):
             painter.drawPixmap(card_x + 70, card_y + 25, 80, 80, bpm)
 
         painter.setPen(QPen(QColor("#FFFFFF")))
-        painter.setFont(QFont("Segoe UI", 13, QFont.Weight.Bold))
+        painter.setFont(QFont("Segoe UI", 13, QFont.Weight.Black))
         painter.drawText(QRectF(card_x + 10, card_y + 125, card_w - 20, 36), Qt.AlignmentFlag.AlignCenter | Qt.TextFlag.TextWordWrap, cur_emu.name)
 
-        painter.setFont(QFont("Segoe UI", 11, QFont.Weight.Normal))
-        painter.setPen(QPen(QColor("#BBBBBB")))
-        painter.drawText(QRectF(card_x + 10, card_y + 180, card_w - 20, 20), Qt.AlignmentFlag.AlignCenter, f"System: {cur_emu.code}")
-        painter.drawText(QRectF(card_x + 10, card_y + 210, card_w - 20, 20), Qt.AlignmentFlag.AlignCenter, f"Total Games: {len(cur_emu.games)}")
-        painter.drawText(QRectF(card_x + 10, card_y + 240, card_w - 20, 20), Qt.AlignmentFlag.AlignCenter, "Core: RetroArch")
+        painter.setFont(QFont("Segoe UI", 10, QFont.Weight.DemiBold))
+        painter.setPen(QPen(QColor("#94a3b8")))
+        painter.drawText(QRectF(card_x + 10, card_y + 180, card_w - 20, 20), Qt.AlignmentFlag.AlignCenter, f"System Code: {cur_emu.code}")
+        painter.drawText(QRectF(card_x + 10, card_y + 210, card_w - 20, 20), Qt.AlignmentFlag.AlignCenter, f"Total ROMs: {len(cur_emu.games)}")
+        painter.drawText(QRectF(card_x + 10, card_y + 240, card_w - 20, 20), Qt.AlignmentFlag.AlignCenter, "Engine: Kayzit Libretro")
 
     def draw_game_list(self, painter, theme):
         cur_emu = self.sys_data.emulators[self.selected_emu_idx]
         
-        painter.setPen(QPen(theme.title_color if theme else QColor("#FFFFFF")))
-        painter.setFont(QFont("Segoe UI", 16, QFont.Weight.Bold))
+        painter.setPen(QPen(QColor("#00f0ff")))
+        painter.setFont(QFont("Segoe UI", 16, QFont.Weight.Black))
         painter.drawText(QRectF(25, 46, 350, 28), Qt.AlignmentFlag.AlignVCenter | Qt.AlignmentFlag.AlignLeft, f"{cur_emu.name} ({len(cur_emu.games)})")
 
         list_x = 25
@@ -554,7 +604,7 @@ class ScreenCanvas(QWidget):
         visible_count = 7
 
         if not cur_emu.games:
-            painter.setPen(QPen(QColor("#AAAAAA")))
+            painter.setPen(QPen(QColor("#94a3b8")))
             painter.setFont(QFont("Segoe UI", 13, QFont.Weight.Normal))
             painter.drawText(QRectF(30, 120, 340, 40), Qt.AlignmentFlag.AlignVCenter | Qt.AlignmentFlag.AlignLeft, "No ROMs found in this folder.")
             return
@@ -570,24 +620,28 @@ class ScreenCanvas(QWidget):
             is_selected = (i == self.selected_game_idx)
 
             if is_selected:
-                painter.setPen(Qt.PenStyle.NoPen)
-                painter.setBrush(QBrush(QColor(0, 122, 255, 180)))
-                painter.drawRoundedRect(list_x, y, 350, item_h - 4, 8, 8)
+                painter.setPen(QPen(QColor("#00f0ff"), 1.5))
+                painter.setBrush(QColor(30, 41, 59, 220))
+                painter.drawRoundedRect(list_x, y, 350, item_h - 4, 10, 10)
+                painter.fillRect(list_x, y + 6, 4, item_h - 16, QColor("#00f0ff"))
                 painter.setPen(QPen(QColor("#FFFFFF")))
             else:
-                painter.setPen(QPen(theme.list_color if theme else QColor("#E0E0E0")))
+                painter.setPen(QPen(QColor(255, 255, 255, 30), 1))
+                painter.setBrush(QColor(15, 23, 42, 160))
+                painter.drawRoundedRect(list_x, y, 350, item_h - 4, 10, 10)
+                painter.setPen(QPen(QColor("#cbd5e1")))
 
             if g.is_favorite:
-                painter.setPen(QPen(QColor("#FFD700")))
+                painter.setPen(QPen(QColor("#fbbf24")))
                 painter.setFont(QFont("Segoe UI", 13, QFont.Weight.Bold))
                 painter.drawText(QRectF(list_x + 8, y, 20, item_h - 4), Qt.AlignmentFlag.AlignCenter, "★")
             else:
-                painter.setPen(QPen(QColor("#888888")))
+                painter.setPen(QPen(QColor("#64748b")))
                 painter.setFont(QFont("Segoe UI", 11, QFont.Weight.Normal))
                 painter.drawText(QRectF(list_x + 8, y, 20, item_h - 4), Qt.AlignmentFlag.AlignCenter, "•")
 
-            painter.setPen(QPen(QColor("#FFFFFF") if is_selected else QColor("#DDDDDD")))
-            painter.setFont(QFont("Segoe UI", 11, QFont.Weight.Bold if is_selected else QFont.Weight.Normal))
+            painter.setPen(QPen(QColor("#FFFFFF") if is_selected else QColor("#cbd5e1")))
+            painter.setFont(QFont("Segoe UI", 11, QFont.Weight.Bold if is_selected else QFont.Weight.DemiBold))
             
             disp_title = g.title if len(g.title) <= 28 else g.title[:26] + "..."
             painter.drawText(QRectF(list_x + 30, y, 310, item_h - 4), Qt.AlignmentFlag.AlignVCenter | Qt.AlignmentFlag.AlignLeft, disp_title)
@@ -598,8 +652,11 @@ class ScreenCanvas(QWidget):
         card_w = 220
         card_h = 336
         
-        painter.setPen(Qt.PenStyle.NoPen)
-        painter.setBrush(QBrush(QColor(0, 0, 0, 140)))
+        painter.setPen(QPen(QColor("#00f0ff"), 1.2))
+        c_grad = QLinearGradient(card_x, card_y, card_x + card_w, card_y + card_h)
+        c_grad.setColorAt(0.0, QColor(30, 41, 59, 230))
+        c_grad.setColorAt(1.0, QColor(15, 23, 42, 245))
+        painter.setBrush(c_grad)
         painter.drawRoundedRect(card_x, card_y, card_w, card_h, 14, 14)
 
         box_w = 140
@@ -612,18 +669,18 @@ class ScreenCanvas(QWidget):
             painter.drawPixmap(box_x, box_y, box_w, box_h, bpm.scaled(box_w, box_h, Qt.AspectRatioMode.KeepAspectRatio, Qt.TransformationMode.SmoothTransformation))
         else:
             bgrad = QLinearGradient(box_x, box_y, box_x + box_w, box_y + box_h)
-            bgrad.setColorAt(0, QColor("#3a1c71"))
-            bgrad.setColorAt(0.5, QColor("#d7654f"))
-            bgrad.setColorAt(1, QColor("#ffa07a"))
-            painter.setBrush(QBrush(bgrad))
+            bgrad.setColorAt(0.0, QColor("#1e293b"))
+            bgrad.setColorAt(1.0, QColor("#0f172a"))
+            painter.setPen(QPen(QColor("#00f0ff"), 1))
+            painter.setBrush(bgrad)
             painter.drawRoundedRect(box_x, box_y, box_w, box_h, 8, 8)
             
             painter.setPen(QPen(QColor("#FFFFFF")))
             painter.setFont(QFont("Segoe UI", 11, QFont.Weight.Bold))
             painter.drawText(QRectF(box_x + 5, box_y + 20, box_w - 10, 120), Qt.AlignmentFlag.AlignCenter | Qt.TextFlag.TextWordWrap, cur_game.title)
 
-        painter.setFont(QFont("Segoe UI", 10, QFont.Weight.Normal))
-        painter.setPen(QPen(QColor("#CCCCCC")))
+        painter.setFont(QFont("Segoe UI", 10, QFont.Weight.DemiBold))
+        painter.setPen(QPen(QColor("#94a3b8")))
         hours = cur_game.playtime_min // 60
         mins = cur_game.playtime_min % 60
         painter.drawText(QRectF(card_x + 10, card_y + 195, card_w - 20, 20), Qt.AlignmentFlag.AlignCenter, f"Playtime: {hours}h {mins}m")
@@ -631,9 +688,9 @@ class ScreenCanvas(QWidget):
         painter.drawText(QRectF(card_x + 10, card_y + 255, card_w - 20, 20), Qt.AlignmentFlag.AlignCenter, "Save State: Slot 0 (Auto)")
 
     def draw_app_list(self, painter, theme):
-        painter.setPen(QPen(theme.title_color if theme else QColor("#FFFFFF")))
-        painter.setFont(QFont("Segoe UI", 16, QFont.Weight.Bold))
-        painter.drawText(QRectF(25, 46, 350, 28), Qt.AlignmentFlag.AlignVCenter | Qt.AlignmentFlag.AlignLeft, "Applications & Tools")
+        painter.setPen(QPen(QColor("#00f0ff")))
+        painter.setFont(QFont("Segoe UI", 16, QFont.Weight.Black))
+        painter.drawText(QRectF(25, 46, 350, 28), Qt.AlignmentFlag.AlignVCenter | Qt.AlignmentFlag.AlignLeft, "⚡ KAYZIT APPLICATIONS")
 
         list_x = 25
         list_y = 78
@@ -651,20 +708,24 @@ class ScreenCanvas(QWidget):
             is_selected = (i == self.selected_app_idx)
 
             if is_selected:
-                painter.setPen(Qt.PenStyle.NoPen)
-                painter.setBrush(QBrush(QColor(0, 122, 255, 180)))
-                painter.drawRoundedRect(list_x, y, 350, item_h - 4, 8, 8)
+                painter.setPen(QPen(QColor("#00f0ff"), 1.5))
+                painter.setBrush(QColor(30, 41, 59, 220))
+                painter.drawRoundedRect(list_x, y, 350, item_h - 4, 10, 10)
+                painter.fillRect(list_x, y + 6, 4, item_h - 16, QColor("#00f0ff"))
                 painter.setPen(QPen(QColor("#FFFFFF")))
             else:
-                painter.setPen(QPen(theme.list_color if theme else QColor("#E0E0E0")))
+                painter.setPen(QPen(QColor(255, 255, 255, 30), 1))
+                painter.setBrush(QColor(15, 23, 42, 160))
+                painter.drawRoundedRect(list_x, y, 350, item_h - 4, 10, 10)
+                painter.setPen(QPen(QColor("#cbd5e1")))
 
             icon_path = self.theme_mgr.get_icon_path(app.icon_id, is_app=True)
             if icon_path and os.path.exists(icon_path):
                 pm = QPixmap(icon_path)
-                painter.drawPixmap(list_x + 8, y + 7, 30, 30, pm)
+                painter.drawPixmap(list_x + 10, y + 6, 32, 32, pm)
 
-            painter.setFont(QFont("Segoe UI", 12, QFont.Weight.Bold if is_selected else QFont.Weight.Normal))
-            painter.drawText(QRectF(list_x + 48, y, 290, item_h - 4), Qt.AlignmentFlag.AlignVCenter | Qt.AlignmentFlag.AlignLeft, app.name)
+            painter.setFont(QFont("Segoe UI", 12, QFont.Weight.Bold if is_selected else QFont.Weight.DemiBold))
+            painter.drawText(QRectF(list_x + 50, y, 290, item_h - 4), Qt.AlignmentFlag.AlignVCenter | Qt.AlignmentFlag.AlignLeft, app.name)
 
         cur_app = self.sys_data.apps[self.selected_app_idx]
         card_x = 395
@@ -672,8 +733,11 @@ class ScreenCanvas(QWidget):
         card_w = 220
         card_h = 336
         
-        painter.setPen(Qt.PenStyle.NoPen)
-        painter.setBrush(QBrush(QColor(0, 0, 0, 140)))
+        painter.setPen(QPen(QColor("#00f0ff"), 1.2))
+        c_grad = QLinearGradient(card_x, card_y, card_x + card_w, card_y + card_h)
+        c_grad.setColorAt(0.0, QColor(30, 41, 59, 230))
+        c_grad.setColorAt(1.0, QColor(15, 23, 42, 245))
+        painter.setBrush(c_grad)
         painter.drawRoundedRect(card_x, card_y, card_w, card_h, 14, 14)
 
         big_icon_path = self.theme_mgr.get_icon_path(cur_app.icon_id, is_app=True)
@@ -682,24 +746,31 @@ class ScreenCanvas(QWidget):
             painter.drawPixmap(card_x + 70, card_y + 25, 80, 80, bpm)
 
         painter.setPen(QPen(QColor("#FFFFFF")))
-        painter.setFont(QFont("Segoe UI", 13, QFont.Weight.Bold))
+        painter.setFont(QFont("Segoe UI", 13, QFont.Weight.Black))
         painter.drawText(QRectF(card_x + 10, card_y + 120, card_w - 20, 30), Qt.AlignmentFlag.AlignCenter, cur_app.name)
 
         painter.setFont(QFont("Segoe UI", 10, QFont.Weight.Normal))
-        painter.setPen(QPen(QColor("#CCCCCC")))
+        painter.setPen(QPen(QColor("#94a3b8")))
         painter.drawText(QRectF(card_x + 15, card_y + 160, card_w - 30, 140), Qt.AlignmentFlag.AlignTop | Qt.TextFlag.TextWordWrap, cur_app.description)
 
     def draw_expert_list(self, painter, theme):
-        painter.setPen(QPen(theme.title_color if theme else QColor("#FFFFFF")))
-        painter.setFont(QFont("Segoe UI", 16, QFont.Weight.Bold))
-        painter.drawText(QRectF(25, 46, 450, 28), Qt.AlignmentFlag.AlignVCenter | Qt.AlignmentFlag.AlignLeft, "Expert Mode (Advanced Systems)")
+        painter.setPen(QPen(QColor("#00f0ff")))
+        painter.setFont(QFont("Segoe UI", 16, QFont.Weight.Black))
+        painter.drawText(QRectF(25, 46, 350, 28), Qt.AlignmentFlag.AlignVCenter | Qt.AlignmentFlag.AlignLeft, "🕹️ RETRO CORES & EXPERT")
 
         list_x = 25
         list_y = 78
         item_h = 48
+        visible_count = 7
 
-        for i, emu in enumerate(self.sys_data.expert_emulators):
-            y = list_y + i * item_h
+        start_idx = max(0, self.selected_expert_idx - 3)
+        if start_idx + visible_count > len(self.sys_data.expert_emulators):
+            start_idx = max(0, len(self.sys_data.expert_emulators) - visible_count)
+        end_idx = min(len(self.sys_data.expert_emulators), start_idx + visible_count)
+
+        for i in range(start_idx, end_idx):
+            emu = self.sys_data.expert_emulators[i]
+            y = list_y + (i - start_idx) * item_h
             is_selected = (i == self.selected_expert_idx)
 
             if is_selected:
@@ -866,12 +937,13 @@ class ScreenCanvas(QWidget):
         gs_top = theme.get_pixmap("gs-top-bar.png") if theme else None
         if gs_top and not gs_top.isNull():
             painter.drawPixmap(0, 0, 640, 45, gs_top)
-        else:
-            painter.fillRect(0, 0, 640, 45, QColor(20, 20, 30, 255))
+        # Top Bar
+        painter.fillRect(0, 0, 640, 45, QColor(15, 23, 42, 255))
+        painter.fillRect(0, 44, 640, 1, QColor("#00f0ff"))
 
-        painter.setPen(QPen(QColor("#FFFFFF")))
-        painter.setFont(QFont("Segoe UI", 15, QFont.Weight.Bold))
-        painter.drawText(QRectF(0, 0, 640, 45), Qt.AlignmentFlag.AlignCenter, "GAME SWITCHER")
+        painter.setPen(QPen(QColor("#00f0ff")))
+        painter.setFont(QFont("Segoe UI", 14, QFont.Weight.Black))
+        painter.drawText(QRectF(0, 0, 640, 45), Qt.AlignmentFlag.AlignCenter, "⚡ KAYZIT INSTANT GAME SWITCHER")
 
         slots = self.sys_data.switcher_slots
         center_x = 320
@@ -888,9 +960,9 @@ class ScreenCanvas(QWidget):
             is_active = (i == self.switcher_idx)
 
             if -1 <= offset <= 1:
-                painter.setPen(QPen(QColor("#007aff" if is_active else "#555555"), 2 if is_active else 1))
-                painter.setBrush(QBrush(QColor(30, 30, 45, 240) if is_active else QColor(20, 20, 30, 180)))
-                painter.drawRoundedRect(cx, cy, card_w, card_h, 12, 12)
+                painter.setPen(QPen(QColor("#00f0ff") if is_active else QColor(255, 255, 255, 40), 2 if is_active else 1))
+                painter.setBrush(QColor(30, 41, 59, 240) if is_active else QColor(15, 23, 42, 180))
+                painter.drawRoundedRect(cx, cy, card_w, card_h, 14, 14)
 
                 thumb_w = card_w - 20
                 thumb_h = 125
@@ -899,24 +971,24 @@ class ScreenCanvas(QWidget):
                 
                 tgrad = QLinearGradient(tx, ty, tx + thumb_w, ty + thumb_h)
                 if i == 0:
-                    tgrad.setColorAt(0, QColor("#11998e"))
-                    tgrad.setColorAt(1, QColor("#38ef7d"))
+                    tgrad.setColorAt(0, QColor("#0284c7"))
+                    tgrad.setColorAt(1, QColor("#06b6d4"))
                 elif i == 1:
-                    tgrad.setColorAt(0, QColor("#8e2de2"))
-                    tgrad.setColorAt(1, QColor("#4a00e0"))
+                    tgrad.setColorAt(0, QColor("#8b5cf6"))
+                    tgrad.setColorAt(1, QColor("#6366f1"))
                 elif i == 2:
-                    tgrad.setColorAt(0, QColor("#f12711"))
-                    tgrad.setColorAt(1, QColor("#f5af19"))
+                    tgrad.setColorAt(0, QColor("#f43f5e"))
+                    tgrad.setColorAt(1, QColor("#fb923c"))
                 else:
-                    tgrad.setColorAt(0, QColor("#2193b0"))
-                    tgrad.setColorAt(1, QColor("#6dd5ed"))
+                    tgrad.setColorAt(0, QColor("#10b981"))
+                    tgrad.setColorAt(1, QColor("#14b8a6"))
 
                 painter.setPen(Qt.PenStyle.NoPen)
                 painter.setBrush(QBrush(tgrad))
-                painter.drawRoundedRect(tx, ty, thumb_w, thumb_h, 8, 8)
+                painter.drawRoundedRect(tx, ty, thumb_w, thumb_h, 10, 10)
 
-                painter.setPen(QPen(QColor(255, 255, 255, 180)))
-                painter.setFont(QFont("Segoe UI", 22, QFont.Weight.Bold))
+                painter.setPen(QPen(QColor(255, 255, 255, 220)))
+                painter.setFont(QFont("Segoe UI", 24, QFont.Weight.Bold))
                 painter.drawText(QRectF(tx, ty, thumb_w, thumb_h), Qt.AlignmentFlag.AlignCenter, "▶")
 
                 painter.setPen(QPen(QColor("#FFFFFF")))
@@ -924,15 +996,16 @@ class ScreenCanvas(QWidget):
                 disp_title = slot.title if len(slot.title) <= 24 else slot.title[:22] + "..."
                 painter.drawText(QRectF(cx + 10, cy + 145, card_w - 20, 22), Qt.AlignmentFlag.AlignVCenter | Qt.AlignmentFlag.AlignLeft, disp_title)
 
-                painter.setFont(QFont("Segoe UI", 10, QFont.Weight.Normal))
-                painter.setPen(QPen(QColor("#4cd964") if is_active else QColor("#AAAAAA")))
+                painter.setFont(QFont("Segoe UI", 10, QFont.Weight.DemiBold))
+                painter.setPen(QPen(QColor("#00f0ff") if is_active else QColor("#94a3b8")))
                 painter.drawText(QRectF(cx + 10, cy + 170, card_w - 20, 20), Qt.AlignmentFlag.AlignVCenter | Qt.AlignmentFlag.AlignLeft, slot.system_name)
                 painter.drawText(QRectF(cx + 10, cy + 195, card_w - 20, 20), Qt.AlignmentFlag.AlignVCenter | Qt.AlignmentFlag.AlignLeft, slot.playtime_str)
 
-        painter.fillRect(0, 442, 640, 38, QColor(10, 10, 15, 255))
-        painter.setFont(QFont("Segoe UI", 10, QFont.Weight.Normal))
-        painter.setPen(QPen(QColor("#FFFFFF")))
-        painter.drawText(QRectF(0, 442, 640, 38), Qt.AlignmentFlag.AlignCenter, "[A] Resume Game    [B] Close    [X] Close Slot    [◀/▶] Switch Game")
+        painter.fillRect(0, 442, 640, 38, QColor(15, 23, 42, 255))
+        painter.fillRect(0, 442, 640, 1, QColor(255, 255, 255, 30))
+        painter.setFont(QFont("Segoe UI", 10, QFont.Weight.DemiBold))
+        painter.setPen(QPen(QColor("#cbd5e1")))
+        painter.drawText(QRectF(0, 442, 640, 38), Qt.AlignmentFlag.AlignCenter, "[A] RESUME GAME   •   [B] CLOSE   •   [X] CLOSE SLOT   •   [◀/▶] SWITCH")
 
     def draw_stock_main_menu(self, painter):
         # Stock Miyoo Blue Background

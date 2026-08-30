@@ -52,13 +52,42 @@ class Theme:
             return QColor("#FFFFFF")
 
     def get_skin_image_path(self, filename):
-        path = os.path.join(self.skin_path, filename)
-        if os.path.exists(path):
-            return path
-        # Try extra subfolder
-        extra_path = os.path.join(self.skin_path, "extra", filename)
-        if os.path.exists(extra_path):
-            return extra_path
+        # Base candidates list
+        candidates = [filename]
+        
+        # Alias mappings for main carousel & system icons
+        name_lower = filename.lower()
+        if "favorite" in name_lower or "fav" in name_lower:
+            candidates.extend(["favorites.png", "favorite.png", "fav.png", "ic-favorite-f.png", "ic-favorite-n.png", "ic-fav-f.png", "ic-fav-n.png", "favorites.jpg"])
+        elif "game" in name_lower:
+            candidates.extend(["games.png", "game.png", "ic-game-f.png", "ic-game-n.png", "ic-gam-f.png", "ic-gam-n.png", "games.jpg"])
+        elif "app" in name_lower:
+            candidates.extend(["apps.png", "app.png", "ic-app-f.png", "ic-app-n.png", "apps.jpg"])
+        elif "recent" in name_lower or "expert" in name_lower or "retroarch" in name_lower:
+            candidates.extend(["expert.png", "retroarch.png", "recent.png", "ic-recent-f.png", "ic-recent-n.png", "expert.jpg"])
+        elif "setting" in name_lower:
+            candidates.extend(["settings.png", "setting.png", "ic-setting-f.png", "ic-setting-n.png", "settings.jpg"])
+
+        # Folders to search inside theme
+        search_dirs = [
+            self.skin_path,
+            os.path.join(self.skin_path, "icons"),
+            os.path.join(self.skin_path, "extra"),
+            os.path.join(self.folder_path, "icons"),
+            self.folder_path
+        ]
+
+        for cand in candidates:
+            for sdir in search_dirs:
+                p = os.path.join(sdir, cand)
+                if os.path.exists(p):
+                    return p
+                # Try without extension or with png/jpg
+                base_no_ext, _ = os.path.splitext(cand)
+                for ext in [".png", ".jpg", ".jpeg"]:
+                    pe = os.path.join(sdir, base_no_ext + ext)
+                    if os.path.exists(pe):
+                        return pe
         return None
 
     def get_pixmap(self, filename):
@@ -232,14 +261,21 @@ class ThemeManager:
     def get_icon_path(self, icon_name, is_app=False):
         # 1. Check theme skin directory first
         if self.current_theme:
-            theme_icon = self.current_theme.get_skin_image_path(f"icon-{icon_name}.png")
-            if theme_icon:
-                return theme_icon
-            theme_icon2 = self.current_theme.get_skin_image_path(f"{icon_name}.png")
-            if theme_icon2:
-                return theme_icon2
+            for candidate in [icon_name, f"icon-{icon_name}.png", f"{icon_name}.png", f"{icon_name}.jpg"]:
+                theme_icon = self.current_theme.get_skin_image_path(candidate)
+                if theme_icon:
+                    return theme_icon
         
-        # 2. Check default icons
+        # 2. Check Kayzit default icons
+        base_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+        kayzit_icons_dir = os.path.join(base_dir, "assets", "kayzit", "icons")
+        if os.path.exists(kayzit_icons_dir):
+            for ext in [".png", ".jpg"]:
+                kp = os.path.join(kayzit_icons_dir, f"{icon_name}{ext}")
+                if os.path.exists(kp):
+                    return kp
+
+        # 3. Check default icons
         if is_app:
             p = os.path.join(self.default_icons_dir, "app", f"{icon_name}.png")
             if os.path.exists(p):
