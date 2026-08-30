@@ -21,10 +21,23 @@ class MiyooSimulatorWindow(QMainWindow):
         else:
             base_dir = os.path.dirname(os.path.abspath(__file__))
             project_root = os.path.dirname(base_dir)
-        sd_root = "E:\\" if os.path.exists("E:\\") else project_root
+
+        # Detect Default Source Payload
+        parent_dir = os.path.dirname(project_root)
+        kayzit_payload = os.path.join(parent_dir, "kayzit-os", "payload")
+        local_payload = os.path.join(project_root, "payload")
         
-        # Themes resolution (Strictly from target drive)
-        themes_dir = os.path.join(sd_root, "Themes")
+        if os.path.exists(kayzit_payload):
+            source_root = kayzit_payload
+        elif os.path.exists(local_payload):
+            source_root = local_payload
+        else:
+            source_root = project_root
+
+        target_root = "E:\\" if os.path.exists("E:\\") else project_root
+        
+        # Themes resolution (Strictly from source payload)
+        themes_dir = os.path.join(source_root, "Themes")
 
         # Default Icons resolution (Directly from assets package)
         default_icons_dir = os.path.join(project_root, "assets", "icons", "default")
@@ -36,7 +49,7 @@ class MiyooSimulatorWindow(QMainWindow):
 
         # Core Engines
         self.theme_mgr = ThemeManager(themes_dir, default_icons_dir)
-        self.sys_data = SystemData(project_root, sd_root=sd_root)
+        self.sys_data = SystemData(project_root, sd_root=source_root)
 
         # Central Layout
         central = QWidget()

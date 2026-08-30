@@ -15,21 +15,28 @@ class DeployWorker(QThread):
     progress = pyqtSignal(int, str)
     finished = pyqtSignal(bool, str)
 
-    def __init__(self, target_path, workspace_root, preserve_mode, selected_items):
+    def __init__(self, source_path, target_path, workspace_root, mode, selected_items):
         super().__init__()
+        self.source_path = source_path
         self.target_path = target_path
         self.workspace_root = workspace_root
-        self.preserve_mode = preserve_mode
+        self.mode = mode # 'preserve', 'wipe', 'update'
         self.selected_items = selected_items
 
     def run(self):
         temp_backup_dir = None
         try:
+            if not self.source_path or not os.path.exists(self.source_path):
+                raise Exception(f"Thư mục Nguồn (Source Payload) không tồn tại:\n{self.source_path}")
+            if not self.target_path or not os.path.exists(self.target_path):
+                raise Exception(f"Ổ đĩa / Thư mục Đích không tồn tại hoặc không thể ghi:\n{self.target_path}")
+
             temp_root = os.path.join(self.workspace_root, ".temp")
             os.makedirs(temp_root, exist_ok=True)
 
-            if self.preserve_mode and self.selected_items:
-                self.progress.emit(15, "📦 Đang sao lưu tạm các thư mục ROMs & Saves đã chọn...")
+            # 1. Backup Preserved Data from Target
+            if self.mode == "preserve" and self.selected_items:
+                self.progress.emit(10, "📦 Đang sao lưu tạm ROMs, Saves & BIOS trên ổ đích...")
                 temp_backup_dir = tempfile.mkdtemp(prefix="miyoo_backup_", dir=temp_root)
                 
                 for rel_path in self.selected_items:
@@ -42,9 +49,9 @@ class DeployWorker(QThread):
                             os.makedirs(os.path.dirname(dst), exist_ok=True)
                             shutil.copy2(src, dst)
 
-            # 2. Clean Target Drive / Folders
-            self.progress.emit(45, "🧹 Đang format và làm sạch ổ đĩa thẻ nhớ...")
-            if not self.preserve_mode:
+            # 2. Clean Target Directory
+            if self.mode == "wipe":
+                self.progress.emit(25, "🧹 Đang format sạch toàn bộ ổ đĩa thẻ nhớ đích...")
                 for item in os.listdir(self.target_path):
                     ipath = os.path.join(self.target_path, item)
                     try:
@@ -54,18 +61,37 @@ class DeployWorker(QThread):
                             os.remove(ipath)
                     except Exception:
                         pass
-            else:
-                system_dirs = [".tmp_update", "miyoo", "miyoo354", "RetroArch", ".tmp_update.bak", ".minui", ".koriki", ".allium"]
+            elif self.mode == "preserve":
+                self.progress.emit(25, "🧹 Đang dọn dẹp các tệp hệ điều hành cũ trên thẻ đích...")
+                system_dirs = [".tmp_update", "miyoo", "miyoo354", ".kayzit", "RetroArch", ".tmp_update.bak", ".minui", ".koriki", ".allium"]
                 for sdir in system_dirs:
                     ipath = os.path.join(self.target_path, sdir)
                     if os.path.exists(ipath):
                         try:
-                            shutil.rmtree(ipath, ignore_errors=True)
+                            if os.path.isdir(ipath):
+                                shutil.rmtree(ipath, ignore_errors=True)
+                            else:
+                                os.remove(ipath)
                         except Exception:
                             pass
 
-            # 3. Create Standard Miyoo Folder Hierarchy
-            self.progress.emit(70, "📁 Đang khởi tạo cấu trúc thư mục chuẩn Miyoo (Roms, Saves, BIOS, Themes)...")
+            # 3. Copy All Files from Source Payload to Target
+            self.progress.emit(40, f"📥 Đang sao chép hệ điều hành từ Nguồn sang Đích...")
+            source_items = os.listdir(self.source_path)
+            total_items = max(1, len(source_items))
+            
+            for idx, item in enumerate(source_items):
+                s_item = os.path.join(self.source_path, item)
+                d_item = os.path.join(self.target_path, item)
+                pct = 40 + int(((idx + 1) / total_items) * 45)
+                self.progress.emit(pct, f"📂 Đang sao chép: {item}...")
+                if os.path.isdir(s_item):
+                    shutil.copytree(s_item, d_item, dirs_exist_ok=True)
+                else:
+                    shutil.copy2(s_item, d_item)
+
+            # 4. Create Standard Folder Hierarchy if missing
+            self.progress.emit(88, "📁 Đang chuẩn hóa cấu trúc thư mục (Roms, Saves, BIOS, Themes)...")
             standard_dirs = [
                 os.path.join("Roms", "GBA"),
                 os.path.join("Roms", "GBC"),
@@ -84,9 +110,9 @@ class DeployWorker(QThread):
             for sdir in standard_dirs:
                 os.makedirs(os.path.join(self.target_path, sdir), exist_ok=True)
 
-            # 4. Restore Preserved Data (if any)
+            # 5. Restore Preserved Data
             if temp_backup_dir and os.path.exists(temp_backup_dir):
-                self.progress.emit(85, "🔄 Đang khôi phục toàn bộ ROMs, Saves & Box Arts đã giữ lại...")
+                self.progress.emit(94, "🔄 Đang khôi phục lại ROMs, Saves & BIOS đã bảo toàn...")
                 for item in os.listdir(temp_backup_dir):
                     s = os.path.join(temp_backup_dir, item)
                     d = os.path.join(self.target_path, item)
@@ -95,12 +121,11 @@ class DeployWorker(QThread):
                     else:
                         shutil.copy2(s, d)
 
-            self.progress.emit(100, "✅ Hoàn tất format và chuẩn bị thẻ nhớ thành công!")
-            self.finished.emit(True, "Format và chuẩn bị thẻ nhớ thành công!")
+            self.progress.emit(100, "✅ Hoàn tất sao chép và chuẩn bị thẻ nhớ thành công!")
+            self.finished.emit(True, "Cài đặt & Sao chép sang Thẻ nhớ thành công!")
         except Exception as e:
             self.finished.emit(False, str(e))
         finally:
-            # Always clean up temporary backup directory
             if temp_backup_dir and os.path.exists(temp_backup_dir):
                 try:
                     shutil.rmtree(temp_backup_dir, ignore_errors=True)
@@ -114,14 +139,15 @@ class DeployWorker(QThread):
                     pass
 
 class SDDeploymentDialog(QDialog):
-    def __init__(self, target_path, workspace_root, parent=None):
+    def __init__(self, source_path, target_path, workspace_root, parent=None):
         super().__init__(parent)
+        self.source_path = source_path
         self.target_path = target_path
         self.workspace_root = workspace_root
         self.worker = None
 
-        self.setWindowTitle("🛠️ Format & Chuẩn bị Thẻ nhớ Miyoo Mini Plus")
-        self.setFixedSize(560, 620)
+        self.setWindowTitle("🛠️ Format & Sao chép Hệ điều hành sang Thẻ nhớ")
+        self.setFixedSize(580, 680)
         self.setStyleSheet("""
             QDialog { background-color: #1c1c1e; color: #ffffff; }
             QLabel { color: #f2f2f7; }
@@ -154,36 +180,45 @@ class SDDeploymentDialog(QDialog):
     def init_ui(self):
         layout = QVBoxLayout(self)
         layout.setContentsMargins(18, 18, 18, 18)
-        layout.setSpacing(12)
+        layout.setSpacing(10)
 
         # 1. Header Banner
-        header = QLabel("📦 Cài đặt & Triển khai OnionOS v4.3.1-1")
+        header = QLabel("📦 Cài đặt & Sao chép Hệ điều hành sang Thẻ nhớ")
         header.setFont(QFont("Segoe UI", 15, QFont.Weight.Bold))
-        header.setStyleSheet("color: #007aff;")
+        header.setStyleSheet("color: #00f0ff;")
         layout.addWidget(header)
 
-        # Target Drive Info
-        lbl_target = QLabel(f"<b>Ổ đĩa / Thư mục mục tiêu:</b> <code style='color: #34c759; font-size: 13px;'>{self.target_path}</code>")
-        lbl_target.setStyleSheet("background: #2c2c2e; padding: 8px; border-radius: 6px; border: 1px solid #3a3a3c;")
+        # Source Box
+        lbl_source = QLabel(f"📥 <b>Thư mục Nguồn (Previewing):</b><br><code style='color: #00f0ff; font-size: 12px;'>{self.source_path}</code>")
+        lbl_source.setStyleSheet("background: #242b35; padding: 8px; border-radius: 6px; border: 1px solid #0284c7;")
+        layout.addWidget(lbl_source)
+
+        # Target Box
+        lbl_target = QLabel(f"📤 <b>Ổ đĩa / Thư mục Đích (Target SD):</b><br><code style='color: #34c759; font-size: 12px;'>{self.target_path}</code>")
+        lbl_target.setStyleSheet("background: #202e26; padding: 8px; border-radius: 6px; border: 1px solid #10b981;")
         layout.addWidget(lbl_target)
 
         # 2. Mode Selector
         grp_mode = QGroupBox("Chọn Chế độ Format / Cài đặt")
         m_layout = QVBoxLayout(grp_mode)
 
-        self.radio_preserve = QRadioButton("🛡️ Format tùy chỉnh (Tùy chọn giữ lại ROMs, Saves, BIOS...)")
+        self.radio_preserve = QRadioButton("🛡️ Format tùy chỉnh (Giữ lại ROMs, Saves, BIOS cũ trên thẻ đích)")
         self.radio_preserve.setChecked(True)
         self.radio_preserve.toggled.connect(self.on_mode_toggled)
         m_layout.addWidget(self.radio_preserve)
 
-        self.radio_wipe = QRadioButton("⚠️ Format sạch (Xóa sạch 100% toàn bộ thẻ nhớ và cài mới)")
+        self.radio_wipe = QRadioButton("⚠️ Format sạch 100% (Xóa sạch toàn bộ thẻ đích & chép nguồn sang)")
         self.radio_wipe.toggled.connect(self.on_mode_toggled)
         m_layout.addWidget(self.radio_wipe)
+
+        self.radio_update = QRadioButton("⚡ Cập nhật nhanh (Chỉ ghi đè hệ điều hành, không xóa bất kỳ file nào)")
+        self.radio_update.toggled.connect(self.on_mode_toggled)
+        m_layout.addWidget(self.radio_update)
 
         layout.addWidget(grp_mode)
 
         # 3. Preservation List Group
-        self.grp_list = QGroupBox("Danh sách Dữ liệu tìm thấy trên Thẻ sẽ được Giữ lại:")
+        self.grp_list = QGroupBox("Danh sách Dữ liệu trên Thẻ Đích sẽ được Bảo toàn:")
         l_layout = QVBoxLayout(self.grp_list)
 
         btn_row = QHBoxLayout()
@@ -200,7 +235,7 @@ class SDDeploymentDialog(QDialog):
         l_layout.addLayout(btn_row)
 
         self.list_widget = QListWidget()
-        self.list_widget.setFixedHeight(170)
+        self.list_widget.setFixedHeight(140)
         self.populate_preserve_items()
         l_layout.addWidget(self.list_widget)
 
@@ -214,7 +249,7 @@ class SDDeploymentDialog(QDialog):
         layout.addWidget(self.progress_bar)
 
         self.status_lbl = QLabel("")
-        self.status_lbl.setStyleSheet("color: #ff9500; font-size: 11px;")
+        self.status_lbl.setStyleSheet("color: #00f0ff; font-size: 11px; font-weight: bold;")
         self.status_lbl.setVisible(False)
         layout.addWidget(self.status_lbl)
 
@@ -227,8 +262,8 @@ class SDDeploymentDialog(QDialog):
 
         btn_box.addStretch()
 
-        self.btn_start = QPushButton("🚀 Bắt đầu Format & Cài đặt")
-        self.btn_start.setStyleSheet("background: #34c759; color: #fff; padding: 8px 20px; font-weight: bold; font-size: 13px; border-radius: 6px;")
+        self.btn_start = QPushButton("🚀 Bắt đầu Sao chép & Cài đặt")
+        self.btn_start.setStyleSheet("background: #10b981; color: #fff; padding: 8px 20px; font-weight: bold; font-size: 13px; border-radius: 6px;")
         self.btn_start.clicked.connect(self.start_deployment)
         btn_box.addWidget(self.btn_start)
 
@@ -288,7 +323,7 @@ class SDDeploymentDialog(QDialog):
                 pass
 
         if self.list_widget.count() == 0:
-            item = QListWidgetItem("⚪ Không tìm thấy ROMs/Saves cũ (Thẻ trống hoặc mới)")
+            item = QListWidgetItem("⚪ Không tìm thấy ROMs/Saves cũ trên thẻ đích")
             item.setFlags(item.flags() & ~Qt.ItemFlag.ItemIsUserCheckable)
             self.list_widget.addItem(item)
 
@@ -309,10 +344,15 @@ class SDDeploymentDialog(QDialog):
                 item.setCheckState(Qt.CheckState.Unchecked)
 
     def start_deployment(self):
-        preserve_mode = self.radio_preserve.isChecked()
+        if self.radio_wipe.isChecked():
+            mode = "wipe"
+        elif self.radio_update.isChecked():
+            mode = "update"
+        else:
+            mode = "preserve"
         
         selected_items = []
-        if preserve_mode:
+        if mode == "preserve":
             for i in range(self.list_widget.count()):
                 item = self.list_widget.item(i)
                 if item.checkState() == Qt.CheckState.Checked:
@@ -321,14 +361,16 @@ class SDDeploymentDialog(QDialog):
                         selected_items.append(rel_path)
 
         # Confirm message
+        mode_str = "Giữ lại ROMs/Saves đã chọn" if mode == "preserve" else ("XÓA SẠCH TOÀN BỘ 100%" if mode == "wipe" else "Cập nhật nhanh")
         msg = (
-            f"Bạn có chắc chắn muốn tiến hành Format & Cài đặt OnionOS vào:\n{self.target_path}?\n\n"
-            f"• Chế độ: {'Giữ lại ROMs & Saves đã chọn' if preserve_mode else 'XÓA SẠCH TOÀN BỘ 100%'}\n"
+            f"Bạn có chắc chắn muốn sao chép từ Nguồn:\n{self.source_path}\n\n"
+            f"Sang ổ đĩa Đích:\n{self.target_path}?\n\n"
+            f"• Chế độ: {mode_str}\n"
             f"• Số mục bảo toàn: {len(selected_items)} mục"
         )
         reply = QMessageBox.warning(
             self,
-            "Xác nhận Cài đặt OnionOS",
+            "Xác nhận Cài đặt & Sao chép",
             msg,
             QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No
         )
@@ -340,13 +382,14 @@ class SDDeploymentDialog(QDialog):
         self.btn_cancel.setEnabled(False)
         self.radio_preserve.setEnabled(False)
         self.radio_wipe.setEnabled(False)
+        self.radio_update.setEnabled(False)
         self.grp_list.setEnabled(False)
         self.progress_bar.setVisible(True)
         self.status_lbl.setVisible(True)
         self.progress_bar.setValue(5)
 
         # Launch Worker Thread
-        self.worker = DeployWorker(self.target_path, self.workspace_root, preserve_mode, selected_items)
+        self.worker = DeployWorker(self.source_path, self.target_path, self.workspace_root, mode, selected_items)
         self.worker.progress.connect(self.on_worker_progress)
         self.worker.finished.connect(self.on_worker_finished)
         self.worker.start()
@@ -362,8 +405,8 @@ class SDDeploymentDialog(QDialog):
             QMessageBox.information(
                 self,
                 "Cài đặt Thành công!",
-                f"🎉 Hệ điều hành OnionOS v4.3.1-1 đã được cài đặt hoàn tất vào {self.target_path}!\n\n"
-                "Toàn bộ ROMs, Saves và 25 Theme đã sẵn sàng. Trình giả lập sẽ tự động Reboot ngay bây giờ."
+                f"🎉 Hệ điều hành đã được sao chép hoàn tất vào:\n{self.target_path}!\n\n"
+                "Thẻ nhớ đã sẵn sàng để cắm vào máy Miyoo Mini Plus và sử dụng."
             )
             self.accept()
         else:
@@ -377,7 +420,9 @@ class ControlDeck(QWidget):
         self.frame_widget = frame_widget
         self.sys_data = canvas.sys_data
         
-        self.drive_combo = None
+        self.source_combo = None
+        self.target_combo = None
+        self.target_info_lbl = None
         self.boot_status_badge = None
         self.diag_info_lbl = None
         self.theme_combo = None
@@ -395,10 +440,10 @@ class ControlDeck(QWidget):
         # Title
         title_lbl = QLabel("🎮 Miyoo Mini Plus Studio & Simulator")
         title_lbl.setFont(QFont("Segoe UI", 16, QFont.Weight.Bold))
-        title_lbl.setStyleSheet("color: #007aff; margin-bottom: 2px;")
+        title_lbl.setStyleSheet("color: #00f0ff; margin-bottom: 2px;")
         main_layout.addWidget(title_lbl)
 
-        # Tabs (4 Clean Tabs - No Overflow)
+        # Tabs (4 Clean Tabs)
         self.tabs = QTabWidget()
         self.tabs.setStyleSheet("""
             QTabWidget::pane { border: 1px solid #3a3a3c; border-radius: 6px; background: #1c1c1e; }
@@ -420,7 +465,7 @@ class ControlDeck(QWidget):
                 subcontrol-position: top left;
                 left: 10px;
                 padding: 0 4px;
-                color: #007aff;
+                color: #00f0ff;
             }
             QScrollBar:vertical {
                 background: #1c1c1e;
@@ -488,31 +533,63 @@ class ControlDeck(QWidget):
         layout = QVBoxLayout(widget)
         layout.setSpacing(12)
 
-        # 1. Drive & Directory Selector
-        grp_drive = QGroupBox("1. MicroSD Drive / Target Folder")
-        d_layout = QVBoxLayout(grp_drive)
+        # 1. Thư mục Nguồn OS (Dùng để Xem trước Preview)
+        grp_source = QGroupBox("1. Thư mục Nguồn OS (Dùng để Xem trước Preview)")
+        s_layout = QVBoxLayout(grp_source)
 
-        d_row = QHBoxLayout()
-        self.drive_combo = QComboBox()
-        self.drive_combo.setStyleSheet("background: #2c2c2e; color: #fff; padding: 6px; border-radius: 4px; font-weight: bold;")
-        d_row.addWidget(self.drive_combo, 1)
+        s_row = QHBoxLayout()
+        self.source_combo = QComboBox()
+        self.source_combo.setStyleSheet("background: #2c2c2e; color: #00f0ff; padding: 6px; border-radius: 4px; font-weight: bold;")
+        s_row.addWidget(self.source_combo, 1)
 
-        btn_browse = QPushButton("📁 Browse...")
-        btn_browse.setStyleSheet("background: #3a3a3c; color: #fff; padding: 6px;")
-        btn_browse.clicked.connect(self.browse_custom_drive)
-        d_row.addWidget(btn_browse)
+        btn_browse_src = QPushButton("📁 Browse Nguồn...")
+        btn_browse_src.setStyleSheet("background: #3a3a3c; color: #fff; padding: 6px;")
+        btn_browse_src.clicked.connect(self.browse_source_dir)
+        s_row.addWidget(btn_browse_src)
 
-        btn_refresh = QPushButton("🔄")
-        btn_refresh.setToolTip("Refresh drive list")
-        btn_refresh.setStyleSheet("background: #3a3a3c; color: #fff; padding: 6px;")
-        btn_refresh.clicked.connect(self.populate_drives)
-        d_row.addWidget(btn_refresh)
+        btn_refresh_src = QPushButton("🔄")
+        btn_refresh_src.setToolTip("Làm mới danh sách nguồn")
+        btn_refresh_src.setStyleSheet("background: #3a3a3c; color: #fff; padding: 6px;")
+        btn_refresh_src.clicked.connect(self.populate_sources)
+        s_row.addWidget(btn_refresh_src)
+        s_layout.addLayout(s_row)
 
-        d_layout.addLayout(d_row)
-        layout.addWidget(grp_drive)
+        lbl_src_hint = QLabel("💡 Máy Miyoo mô phỏng bên trái đang Xem trước (Preview) trực tiếp từ Thư mục Nguồn này.")
+        lbl_src_hint.setStyleSheet("color: #94a3b8; font-size: 11px;")
+        lbl_src_hint.setWordWrap(True)
+        s_layout.addWidget(lbl_src_hint)
 
-        # 2. Linux Bootloader Diagnostic Panel
-        grp_diag = QGroupBox("2. Linux Bootloader Check (Onion vs Stock)")
+        layout.addWidget(grp_source)
+
+        # 2. Ổ đĩa / Thư mục Đích (Thẻ nhớ MicroSD để Format & Sao chép)
+        grp_target = QGroupBox("2. Ổ đĩa / Thư mục Đích (Thẻ nhớ MicroSD để Format & Sao chép)")
+        t_layout = QVBoxLayout(grp_target)
+
+        t_row = QHBoxLayout()
+        self.target_combo = QComboBox()
+        self.target_combo.setStyleSheet("background: #2c2c2e; color: #10b981; padding: 6px; border-radius: 4px; font-weight: bold;")
+        t_row.addWidget(self.target_combo, 1)
+
+        btn_browse_tgt = QPushButton("📁 Browse Đích...")
+        btn_browse_tgt.setStyleSheet("background: #3a3a3c; color: #fff; padding: 6px;")
+        btn_browse_tgt.clicked.connect(self.browse_target_dir)
+        t_row.addWidget(btn_browse_tgt)
+
+        btn_refresh_tgt = QPushButton("🔄")
+        btn_refresh_tgt.setToolTip("Quét lại danh sách ổ đĩa")
+        btn_refresh_tgt.setStyleSheet("background: #3a3a3c; color: #fff; padding: 6px;")
+        btn_refresh_tgt.clicked.connect(self.populate_targets)
+        t_row.addWidget(btn_refresh_tgt)
+        t_layout.addLayout(t_row)
+
+        self.target_info_lbl = QLabel("")
+        self.target_info_lbl.setStyleSheet("color: #38bdf8; font-size: 11px; font-weight: bold;")
+        t_layout.addWidget(self.target_info_lbl)
+
+        layout.addWidget(grp_target)
+
+        # 3. Chẩn đoán Bootloader Thư mục Nguồn
+        grp_diag = QGroupBox("3. Chẩn đoán Bootloader Thư mục Nguồn (Preview)")
         diag_layout = QVBoxLayout(grp_diag)
 
         self.boot_status_badge = QLabel()
@@ -527,47 +604,91 @@ class ControlDeck(QWidget):
         self.diag_info_lbl.setWordWrap(True)
         diag_layout.addWidget(self.diag_info_lbl)
 
-        btn_reboot = QPushButton("🔄 Re-Check & Reboot Miyoo")
+        btn_reboot = QPushButton("🔄 Kiểm tra lại & Khởi động lại giả lập")
         btn_reboot.setStyleSheet("background: #007aff; color: #fff; font-weight: bold; padding: 8px; border-radius: 4px;")
         btn_reboot.clicked.connect(self.trigger_reboot)
         diag_layout.addWidget(btn_reboot)
 
         layout.addWidget(grp_diag)
 
-        # 3. Smart Format & SD Card Tools
-        grp_quick = QGroupBox("3. Format & Chuẩn bị Thẻ nhớ Miyoo")
+        # 4. Công cụ Sao chép & Format Thẻ nhớ
+        grp_quick = QGroupBox("4. Cài đặt & Sao chép sang Thẻ nhớ")
         q_layout = QVBoxLayout(grp_quick)
 
-        btn_install_onion = QPushButton("🛠️ Format & Khởi tạo Thẻ nhớ (Tùy chọn giữ ROMs/Saves)")
-        btn_install_onion.setStyleSheet("background: #007aff; color: #fff; font-weight: bold; padding: 10px; border-radius: 6px;")
-        btn_install_onion.clicked.connect(self.open_deployment_dialog)
-        q_layout.addWidget(btn_install_onion)
+        btn_deploy = QPushButton("🚀 Sao chép & Format Thẻ nhớ (Nguồn ➔ Đích)")
+        btn_deploy.setStyleSheet("background: #10b981; color: #fff; font-weight: bold; padding: 10px; border-radius: 6px; font-size: 13px;")
+        btn_deploy.clicked.connect(self.open_deployment_dialog)
+        q_layout.addWidget(btn_deploy)
 
-        btn_copy_theme_sd = QPushButton("📂 Xuất Theme hiện tại sang Thẻ nhớ (Themes/)")
-        btn_copy_theme_sd.setStyleSheet("background: #007aff; color: #fff; padding: 8px; font-weight: bold; border-radius: 4px;")
+        btn_copy_theme_sd = QPushButton("📂 Xuất Theme Nguồn sang Thẻ nhớ Đích (Themes/)")
+        btn_copy_theme_sd.setStyleSheet("background: #0284c7; color: #fff; padding: 8px; font-weight: bold; border-radius: 4px;")
         btn_copy_theme_sd.clicked.connect(self.export_theme_to_sd)
         q_layout.addWidget(btn_copy_theme_sd)
 
         layout.addWidget(grp_quick)
         layout.addStretch()
 
-        # Safely populate drives and connect signal
-        self.populate_drives()
-        self.drive_combo.currentTextChanged.connect(self.on_drive_changed)
+        self.populate_sources()
+        self.populate_targets()
+        self.source_combo.currentTextChanged.connect(self.on_source_changed)
+        self.target_combo.currentTextChanged.connect(self.on_target_changed)
 
         scroll.setWidget(widget)
         self.update_boot_diagnostic_ui()
+        self.update_target_info()
         return scroll
 
-    def populate_drives(self):
-        if self.drive_combo is None:
+    def get_source_path(self):
+        if self.source_combo and self.source_combo.currentData():
+            return self.source_combo.currentData()
+        return self.sys_data.sd_root or self.sys_data.workspace_root
+
+    def get_target_path(self):
+        if self.target_combo and self.target_combo.currentData():
+            return self.target_combo.currentData()
+        return "E:\\"
+
+    def populate_sources(self):
+        if self.source_combo is None:
             return
-        self.drive_combo.blockSignals(True)
-        self.drive_combo.clear()
+        self.source_combo.blockSignals(True)
+        self.source_combo.clear()
+
+        # Known OS Payload locations
+        known_sources = []
         
-        current_target = self.sys_data.sd_root or ""
-        
-        # Scan only mounted Windows drives instantly via Kernel bitmask
+        # 1. Kayzit OS Payload
+        parent_dir = os.path.dirname(self.sys_data.workspace_root)
+        kayzit_payload = os.path.join(parent_dir, "kayzit-os", "payload")
+        if os.path.exists(kayzit_payload):
+            known_sources.append((kayzit_payload, "⚡ Kayzit OS Payload (kayzit-os/payload)"))
+
+        # 2. Project Workspace Virtual SD
+        proj_dir = self.sys_data.workspace_root
+        known_sources.append((proj_dir, "Virtual SD (Project Workspace)"))
+
+        # 3. Any Payload subfolder inside workspace
+        ws_payload = os.path.join(proj_dir, "payload")
+        if os.path.exists(ws_payload) and ws_payload != kayzit_payload:
+            known_sources.append((ws_payload, "Custom Payload Folder (payload/)"))
+
+        for path, label in known_sources:
+            self.source_combo.addItem(label, path)
+
+        current_src = self.sys_data.sd_root or (known_sources[0][0] if known_sources else proj_dir)
+        for idx in range(self.source_combo.count()):
+            if self.source_combo.itemData(idx) == current_src:
+                self.source_combo.setCurrentIndex(idx)
+                break
+
+        self.source_combo.blockSignals(False)
+
+    def populate_targets(self):
+        if self.target_combo is None:
+            return
+        self.target_combo.blockSignals(True)
+        self.target_combo.clear()
+
         available = []
         try:
             import ctypes
@@ -577,42 +698,54 @@ class ControlDeck(QWidget):
                     d = chr(ord('A') + i)
                     drv = f"{d}:\\"
                     try:
-                        has_onion = os.path.exists(os.path.join(drv, ".tmp_update")) and os.path.exists(os.path.join(drv, "miyoo"))
-                        tag = " [ONION OS]" if has_onion else " [Drive]"
+                        has_sd = os.path.exists(os.path.join(drv, ".tmp_update")) or os.path.exists(os.path.join(drv, "Roms")) or os.path.exists(os.path.join(drv, ".kayzit"))
+                        tag = " [MicroSD Card]" if has_sd else " [Ổ đĩa]"
                         if d == 'E':
-                            tag = " [ONION SD]" if has_onion else " [USB Card]"
+                            tag = " [Miyoo MicroSD]"
                         available.append((drv, f"{drv}{tag}"))
                     except Exception:
                         available.append((drv, drv))
         except Exception:
-            for d in ['C', 'D', 'E', 'F', 'G']:
+            for d in ['E', 'F', 'G', 'D', 'C']:
                 drv = f"{d}:\\"
                 if os.path.exists(drv):
                     available.append((drv, drv))
 
-        # Add workspace project folder as virtual SD option
-        proj_dir = self.sys_data.workspace_root
-        available.append((proj_dir, "Virtual SD (Project Workspace)"))
+        # Add Virtual Target option
+        virt_tgt = os.path.join(self.sys_data.workspace_root, "virtual_sd_export")
+        available.append((virt_tgt, "📁 Thư mục ảo Xuất Thẻ nhớ (virtual_sd_export)"))
 
         for path, label in available:
-            self.drive_combo.addItem(label, path)
+            self.target_combo.addItem(label, path)
 
-        # Set selection to current sd_root
-        for idx in range(self.drive_combo.count()):
-            if self.drive_combo.itemData(idx) == current_target:
-                self.drive_combo.setCurrentIndex(idx)
+        # Default to E:\ if present, else first available
+        for idx in range(self.target_combo.count()):
+            p = self.target_combo.itemData(idx)
+            if p and p.startswith("E:"):
+                self.target_combo.setCurrentIndex(idx)
                 break
 
-        self.drive_combo.blockSignals(False)
+        self.target_combo.blockSignals(False)
+        self.update_target_info()
 
-    def on_drive_changed(self):
-        if self.drive_combo is None:
-            return
-        selected_path = self.drive_combo.currentData()
-        if selected_path:
-            self.sys_data.reload_from_path(selected_path)
+    def browse_source_dir(self):
+        folder = QFileDialog.getExistingDirectory(self, "Chọn Thư mục Nguồn OS (Xem trước Preview)", self.get_source_path())
+        if folder:
+            self.source_combo.addItem(f"📁 Nguồn: {folder}", folder)
+            self.source_combo.setCurrentIndex(self.source_combo.count() - 1)
+
+    def browse_target_dir(self):
+        folder = QFileDialog.getExistingDirectory(self, "Chọn Ổ đĩa / Thư mục Đích (Format/Sao chép)", self.get_target_path())
+        if folder:
+            self.target_combo.addItem(f"📁 Đích: {folder}", folder)
+            self.target_combo.setCurrentIndex(self.target_combo.count() - 1)
+
+    def on_source_changed(self):
+        src = self.get_source_path()
+        if src and os.path.exists(src):
+            self.sys_data.reload_from_path(src)
             
-            th_dir = os.path.join(selected_path, "Themes")
+            th_dir = os.path.join(src, "Themes")
             if os.path.exists(th_dir) and os.path.isdir(th_dir) and os.listdir(th_dir):
                 self.theme_mgr.reload_themes(th_dir)
             else:
@@ -624,15 +757,31 @@ class ControlDeck(QWidget):
             self.canvas.view_stack = ['MAIN_CAROUSEL']
             self.canvas.update()
 
-    def browse_custom_drive(self):
-        folder = QFileDialog.getExistingDirectory(self, "Select MicroSD Card or Folder", self.sys_data.sd_root or "C:\\")
-        if folder:
-            self.drive_combo.addItem(f"Custom: {folder}", folder)
-            self.drive_combo.setCurrentIndex(self.drive_combo.count() - 1)
+    def on_target_changed(self):
+        self.update_target_info()
+
+    def update_target_info(self):
+        if not hasattr(self, 'target_info_lbl') or self.target_info_lbl is None:
+            return
+        tgt = self.get_target_path()
+        if not tgt:
+            self.target_info_lbl.setText("")
+            return
+
+        try:
+            if os.path.exists(tgt):
+                usage = shutil.disk_usage(tgt)
+                free_gb = usage.free / (1024 ** 3)
+                total_gb = usage.total / (1024 ** 3)
+                self.target_info_lbl.setText(f"💾 Dung lượng trống: {free_gb:.1f} GB / {total_gb:.1f} GB ({tgt})")
+            else:
+                self.target_info_lbl.setText(f"📁 Thư mục chưa tồn tại (sẽ tự tạo khi sao chép): {tgt}")
+        except Exception:
+            self.target_info_lbl.setText(f"📁 Đích: {tgt}")
 
     def trigger_reboot(self):
-        selected_path = self.drive_combo.currentData() or self.sys_data.sd_root
-        self.sys_data.reload_from_path(selected_path)
+        src = self.get_source_path()
+        self.sys_data.reload_from_path(src)
         self.canvas.view_stack = ['MAIN_CAROUSEL']
         self.canvas.active_running_game = None
         self.canvas.switcher_open = False
@@ -656,16 +805,16 @@ class ControlDeck(QWidget):
             self.boot_status_badge.setStyleSheet("background: #ef4444; color: #ffffff; padding: 8px; border-radius: 6px;")
 
         u_stat = "🟢 Found (Installed)" if diag.has_tmp_update else "🔴 Missing"
-        m_stat = "🟢 Found (MainUI & Daemons)" if diag.has_miyoo else "🔴 Missing"
+        m_stat = "🟢 Found (MainUI & Daemons)" if (diag.has_miyoo or os.path.exists(os.path.join(diag.path, ".kayzit"))) else "🔴 Missing"
         t_stat = f"🟢 Found ({diag.theme_count} themes)" if diag.has_themes else "⚪ None"
         r_stat = f"🟢 Found ({diag.rom_count} ROMs indexed)" if diag.has_roms else "⚪ None"
 
         text = (
-            f"<b>Target Path:</b> <code>{diag.path}</code><br><br>"
+            f"<b>Source Payload Path:</b> <code>{diag.path}</code><br><br>"
             f"<b>Boot Diagnostics:</b><br>"
             f"• <b>Linux Kernel:</b> 🟢 Initialized (NAND Flash)<br>"
             f"• <b>.tmp_update/ :</b> {u_stat}<br>"
-            f"• <b>miyoo/ :</b> {m_stat}<br>"
+            f"• <b>OS Payload/ :</b> {m_stat}<br>"
             f"• <b>Themes/ :</b> {t_stat}<br>"
             f"• <b>Roms/ :</b> {r_stat}<br><br>"
             f"<b>Kernel Decision:</b><br>{diag.status_message}"
@@ -673,15 +822,18 @@ class ControlDeck(QWidget):
         self.diag_info_lbl.setText(text)
 
     def open_deployment_dialog(self):
-        target = self.drive_combo.currentData() or self.sys_data.sd_root
-        if not target or not os.path.exists(target):
-            QMessageBox.warning(self, "Invalid Target", "Vui lòng chọn một ổ đĩa hoặc thư mục hợp lệ.")
+        source = self.get_source_path()
+        target = self.get_target_path()
+        if not source or not os.path.exists(source):
+            QMessageBox.warning(self, "Invalid Source", "Vui lòng chọn một Thư mục Nguồn hợp lệ.")
+            return
+        if not target:
+            QMessageBox.warning(self, "Invalid Target", "Vui lòng chọn một Ổ đĩa / Thư mục Đích hợp lệ.")
             return
 
-        dialog = SDDeploymentDialog(target, self.sys_data.workspace_root, self)
+        dialog = SDDeploymentDialog(source, target, self.sys_data.workspace_root, self)
         if dialog.exec() == QDialog.DialogCode.Accepted:
-            self.trigger_reboot()
-            self.populate_drives()
+            self.populate_targets()
 
     def create_theme_tab(self):
         scroll = QScrollArea()
@@ -996,9 +1148,9 @@ class ControlDeck(QWidget):
             QMessageBox.warning(self, "No Theme", "Vui lòng chọn một theme trước.")
             return
 
-        dest_drive = self.drive_combo.currentData() or self.sys_data.sd_root
-        if not dest_drive or not os.path.exists(dest_drive):
-            QMessageBox.warning(self, "Invalid Destination", "Ổ đĩa mục tiêu không truy cập được.")
+        dest_drive = self.get_target_path()
+        if not dest_drive:
+            QMessageBox.warning(self, "Invalid Destination", "Vui lòng chọn ổ đĩa hoặc thư mục đích.")
             return
 
         dest_themes = os.path.join(dest_drive, "Themes")
