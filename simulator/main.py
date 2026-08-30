@@ -9,6 +9,7 @@ from simulator.models import SystemData
 from simulator.screen_canvas import ScreenCanvas
 from simulator.handheld_frame import HandheldFrame
 from simulator.control_deck import ControlDeck
+from simulator.recent_history import load_recent_sources, add_recent_source
 from simulator.i18n import tr, add_listener
 
 class MiyooSimulatorWindow(QMainWindow):
@@ -24,17 +25,14 @@ class MiyooSimulatorWindow(QMainWindow):
             base_dir = os.path.dirname(os.path.abspath(__file__))
             project_root = os.path.dirname(base_dir)
 
-        # Detect Default Source Payload
+        # Detect Default Source Payload / Recent History (Sorted MRU, max 10, valid only)
         parent_dir = os.path.dirname(project_root)
         kayzit_payload = os.path.join(parent_dir, "kayzit-os", "payload")
         local_payload = os.path.join(project_root, "payload")
-        
-        if os.path.exists(kayzit_payload):
-            source_root = kayzit_payload
-        elif os.path.exists(local_payload):
-            source_root = local_payload
-        else:
-            source_root = project_root
+        fallback_candidates = [kayzit_payload, local_payload, project_root]
+
+        recent_sources = load_recent_sources(project_root, fallback_candidates)
+        source_root = recent_sources[0] if recent_sources else project_root
 
         target_root = "E:\\" if os.path.exists("E:\\") else project_root
         

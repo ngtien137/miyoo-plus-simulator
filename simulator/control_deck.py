@@ -10,20 +10,8 @@ from PyQt6.QtWidgets import (
 )
 from PyQt6.QtGui import QPixmap, QColor, QFont, QIcon
 from PyQt6.QtCore import Qt, QThread, pyqtSignal
-
-import os
-import shutil
-import string
-import tempfile
-from PyQt6.QtWidgets import (
-    QWidget, QVBoxLayout, QHBoxLayout, QLabel, QComboBox, QPushButton,
-    QSlider, QCheckBox, QGroupBox, QScrollArea, QColorDialog, QMessageBox,
-    QTabWidget, QFileDialog, QFrame, QDialog, QRadioButton, QButtonGroup,
-    QProgressBar, QListWidget, QListWidgetItem
-)
-from PyQt6.QtGui import QPixmap, QColor, QFont, QIcon
-from PyQt6.QtCore import Qt, QThread, pyqtSignal
 from simulator.i18n import tr, get_language, set_language, add_listener
+from simulator.recent_history import load_recent_sources, add_recent_source
 
 class DeployWorker(QThread):
     progress = pyqtSignal(int, str)
@@ -727,32 +715,32 @@ class ControlDeck(QWidget):
         self.source_combo.blockSignals(True)
         self.source_combo.clear()
 
-        # Known OS Payload locations
-        known_sources = []
-        
-        # 1. Kayzit OS Payload
         parent_dir = os.path.dirname(self.sys_data.workspace_root)
         kayzit_payload = os.path.join(parent_dir, "kayzit-os", "payload")
-        if os.path.exists(kayzit_payload):
-            known_sources.append((kayzit_payload, tr("src_opt_kayzit")))
+        local_payload = os.path.join(self.sys_data.workspace_root, "payload")
+        fallback_candidates = [kayzit_payload, local_payload, self.sys_data.workspace_root]
 
-        # 2. Project Workspace Virtual SD
-        proj_dir = self.sys_data.workspace_root
-        known_sources.append((proj_dir, tr("src_opt_workspace")))
+        # Load valid recent sources (max 10, newest to oldest)
+        recent_sources = load_recent_sources(self.sys_data.workspace_root, fallback_candidates)
 
-        # 3. Any Payload subfolder inside workspace
-        ws_payload = os.path.join(proj_dir, "payload")
-        if os.path.exists(ws_payload) and ws_payload != kayzit_payload:
-            known_sources.append((ws_payload, tr("src_opt_custom")))
+        for idx, path in enumerate(recent_sources):
+            folder_name = os.path.basename(path)
+            norm_k = os.path.abspath(os.path.normpath(kayzit_payload))
+            norm_p = os.path.abspath(os.path.normpath(path))
+            norm_ws = os.path.abspath(os.path.normpath(self.sys_data.workspace_root))
 
-        for path, label in known_sources:
+            if norm_p == norm_k:
+                label = f"⚡ {idx+1}. Kayzit OS Payload ({path})"
+            elif norm_p == norm_ws:
+                label = f"📁 {idx+1}. Miyoo Workspace ({path})"
+            else:
+                label = f"📁 {idx+1}. {folder_name} ({path})"
+
             self.source_combo.addItem(label, path)
 
-        current_src = self.sys_data.sd_root or (known_sources[0][0] if known_sources else proj_dir)
-        for idx in range(self.source_combo.count()):
-            if self.source_combo.itemData(idx) == current_src:
-                self.source_combo.setCurrentIndex(idx)
-                break
+        # Automatically select the first (most recently accessed) item
+        if self.source_combo.count() > 0:
+            self.source_combo.setCurrentIndex(0)
 
         self.source_combo.blockSignals(False)
 
@@ -803,9 +791,10 @@ class ControlDeck(QWidget):
 
     def browse_source_dir(self):
         folder = QFileDialog.getExistingDirectory(self, tr("btn_browse_src"), self.get_source_path())
-        if folder:
-            self.source_combo.addItem(f"{tr('src_prefix')}{folder}", folder)
-            self.source_combo.setCurrentIndex(self.source_combo.count() - 1)
+        if folder and os.path.exists(folder) and os.path.isdir(folder):
+            add_recent_source(self.sys_data.workspace_root, folder)
+            self.populate_sources()
+            self.on_source_changed()
 
     def browse_target_dir(self):
         folder = QFileDialog.getExistingDirectory(self, tr("btn_browse_tgt"), self.get_target_path())
@@ -815,7 +804,8 @@ class ControlDeck(QWidget):
 
     def on_source_changed(self):
         src = self.get_source_path()
-        if src and os.path.exists(src):
+        if src and os.path.exists(src) and os.path.isdir(src):
+            add_recent_source(self.sys_data.workspace_root, src)
             self.sys_data.reload_from_path(src)
             
             th_dir = os.path.join(src, "Themes")
