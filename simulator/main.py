@@ -9,11 +9,13 @@ from simulator.models import SystemData
 from simulator.screen_canvas import ScreenCanvas
 from simulator.handheld_frame import HandheldFrame
 from simulator.control_deck import ControlDeck
+from simulator.i18n import tr, add_listener
 
 class MiyooSimulatorWindow(QMainWindow):
     def __init__(self):
         super().__init__()
-        self.setWindowTitle("Miyoo Mini Plus Simulator & MicroSD Studio")
+        self.setWindowTitle(tr("app_title"))
+        add_listener(lambda: self.setWindowTitle(tr("app_title")))
         
         # Paths
         if getattr(sys, 'frozen', False):

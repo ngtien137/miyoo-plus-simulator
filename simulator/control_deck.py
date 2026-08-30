@@ -11,6 +11,20 @@ from PyQt6.QtWidgets import (
 from PyQt6.QtGui import QPixmap, QColor, QFont, QIcon
 from PyQt6.QtCore import Qt, QThread, pyqtSignal
 
+import os
+import shutil
+import string
+import tempfile
+from PyQt6.QtWidgets import (
+    QWidget, QVBoxLayout, QHBoxLayout, QLabel, QComboBox, QPushButton,
+    QSlider, QCheckBox, QGroupBox, QScrollArea, QColorDialog, QMessageBox,
+    QTabWidget, QFileDialog, QFrame, QDialog, QRadioButton, QButtonGroup,
+    QProgressBar, QListWidget, QListWidgetItem
+)
+from PyQt6.QtGui import QPixmap, QColor, QFont, QIcon
+from PyQt6.QtCore import Qt, QThread, pyqtSignal
+from simulator.i18n import tr, get_language, set_language, add_listener
+
 class DeployWorker(QThread):
     progress = pyqtSignal(int, str)
     finished = pyqtSignal(bool, str)
@@ -27,16 +41,16 @@ class DeployWorker(QThread):
         temp_backup_dir = None
         try:
             if not self.source_path or not os.path.exists(self.source_path):
-                raise Exception(f"Thư mục Nguồn (Source Payload) không tồn tại:\n{self.source_path}")
+                raise Exception(f"{tr('diag_source_path', path=self.source_path)}")
             if not self.target_path or not os.path.exists(self.target_path):
-                raise Exception(f"Ổ đĩa / Thư mục Đích không tồn tại hoặc không thể ghi:\n{self.target_path}")
+                raise Exception(f"{self.target_path}")
 
             temp_root = os.path.join(self.workspace_root, ".temp")
             os.makedirs(temp_root, exist_ok=True)
 
             # 1. Backup Preserved Data from Target
             if self.mode == "preserve" and self.selected_items:
-                self.progress.emit(10, "📦 Đang sao lưu tạm ROMs, Saves & BIOS trên ổ đích...")
+                self.progress.emit(10, tr("prog_backup"))
                 temp_backup_dir = tempfile.mkdtemp(prefix="miyoo_backup_", dir=temp_root)
                 
                 for rel_path in self.selected_items:
@@ -51,7 +65,7 @@ class DeployWorker(QThread):
 
             # 2. Clean Target Directory
             if self.mode == "wipe":
-                self.progress.emit(25, "🧹 Đang format sạch toàn bộ ổ đĩa thẻ nhớ đích...")
+                self.progress.emit(25, tr("prog_clean_wipe"))
                 for item in os.listdir(self.target_path):
                     ipath = os.path.join(self.target_path, item)
                     try:
@@ -62,7 +76,7 @@ class DeployWorker(QThread):
                     except Exception:
                         pass
             elif self.mode == "preserve":
-                self.progress.emit(25, "🧹 Đang dọn dẹp các tệp hệ điều hành cũ trên thẻ đích...")
+                self.progress.emit(25, tr("prog_clean_sys"))
                 system_dirs = [".tmp_update", "miyoo", "miyoo354", ".kayzit", "RetroArch", ".tmp_update.bak", ".minui", ".koriki", ".allium"]
                 for sdir in system_dirs:
                     ipath = os.path.join(self.target_path, sdir)
@@ -76,7 +90,7 @@ class DeployWorker(QThread):
                             pass
 
             # 3. Copy All Files from Source Payload to Target
-            self.progress.emit(40, f"📥 Đang sao chép hệ điều hành từ Nguồn sang Đích...")
+            self.progress.emit(40, tr("prog_copying"))
             source_items = os.listdir(self.source_path)
             total_items = max(1, len(source_items))
             
@@ -84,14 +98,14 @@ class DeployWorker(QThread):
                 s_item = os.path.join(self.source_path, item)
                 d_item = os.path.join(self.target_path, item)
                 pct = 40 + int(((idx + 1) / total_items) * 45)
-                self.progress.emit(pct, f"📂 Đang sao chép: {item}...")
+                self.progress.emit(pct, tr("prog_copy_item", item=item))
                 if os.path.isdir(s_item):
                     shutil.copytree(s_item, d_item, dirs_exist_ok=True)
                 else:
                     shutil.copy2(s_item, d_item)
 
             # 4. Create Standard Folder Hierarchy if missing
-            self.progress.emit(88, "📁 Đang chuẩn hóa cấu trúc thư mục (Roms, Saves, BIOS, Themes)...")
+            self.progress.emit(88, tr("prog_hierarchy"))
             standard_dirs = [
                 os.path.join("Roms", "GBA"),
                 os.path.join("Roms", "GBC"),
@@ -112,7 +126,7 @@ class DeployWorker(QThread):
 
             # 5. Restore Preserved Data
             if temp_backup_dir and os.path.exists(temp_backup_dir):
-                self.progress.emit(94, "🔄 Đang khôi phục lại ROMs, Saves & BIOS đã bảo toàn...")
+                self.progress.emit(94, tr("prog_restore"))
                 for item in os.listdir(temp_backup_dir):
                     s = os.path.join(temp_backup_dir, item)
                     d = os.path.join(self.target_path, item)
@@ -121,8 +135,8 @@ class DeployWorker(QThread):
                     else:
                         shutil.copy2(s, d)
 
-            self.progress.emit(100, "✅ Hoàn tất sao chép và chuẩn bị thẻ nhớ thành công!")
-            self.finished.emit(True, "Cài đặt & Sao chép sang Thẻ nhớ thành công!")
+            self.progress.emit(100, tr("prog_done"))
+            self.finished.emit(True, tr("prog_done"))
         except Exception as e:
             self.finished.emit(False, str(e))
         finally:
@@ -146,7 +160,7 @@ class SDDeploymentDialog(QDialog):
         self.workspace_root = workspace_root
         self.worker = None
 
-        self.setWindowTitle("🛠️ Format & Sao chép Hệ điều hành sang Thẻ nhớ")
+        self.setWindowTitle(tr("deploy_title"))
         self.setFixedSize(580, 680)
         self.setStyleSheet("""
             QDialog { background-color: #1c1c1e; color: #ffffff; }
@@ -183,51 +197,51 @@ class SDDeploymentDialog(QDialog):
         layout.setSpacing(10)
 
         # 1. Header Banner
-        header = QLabel("📦 Cài đặt & Sao chép Hệ điều hành sang Thẻ nhớ")
+        header = QLabel(tr("deploy_header"))
         header.setFont(QFont("Segoe UI", 15, QFont.Weight.Bold))
         header.setStyleSheet("color: #00f0ff;")
         layout.addWidget(header)
 
         # Source Box
-        lbl_source = QLabel(f"📥 <b>Thư mục Nguồn (Previewing):</b><br><code style='color: #00f0ff; font-size: 12px;'>{self.source_path}</code>")
+        lbl_source = QLabel(tr("deploy_source_box", path=self.source_path))
         lbl_source.setStyleSheet("background: #242b35; padding: 8px; border-radius: 6px; border: 1px solid #0284c7;")
         layout.addWidget(lbl_source)
 
         # Target Box
-        lbl_target = QLabel(f"📤 <b>Ổ đĩa / Thư mục Đích (Target SD):</b><br><code style='color: #34c759; font-size: 12px;'>{self.target_path}</code>")
+        lbl_target = QLabel(tr("deploy_target_box", path=self.target_path))
         lbl_target.setStyleSheet("background: #202e26; padding: 8px; border-radius: 6px; border: 1px solid #10b981;")
         layout.addWidget(lbl_target)
 
         # 2. Mode Selector
-        grp_mode = QGroupBox("Chọn Chế độ Format / Cài đặt")
+        grp_mode = QGroupBox(tr("deploy_grp_mode"))
         m_layout = QVBoxLayout(grp_mode)
 
-        self.radio_preserve = QRadioButton("🛡️ Format tùy chỉnh (Giữ lại ROMs, Saves, BIOS cũ trên thẻ đích)")
+        self.radio_preserve = QRadioButton(tr("deploy_mode_preserve"))
         self.radio_preserve.setChecked(True)
         self.radio_preserve.toggled.connect(self.on_mode_toggled)
         m_layout.addWidget(self.radio_preserve)
 
-        self.radio_wipe = QRadioButton("⚠️ Format sạch 100% (Xóa sạch toàn bộ thẻ đích & chép nguồn sang)")
+        self.radio_wipe = QRadioButton(tr("deploy_mode_wipe"))
         self.radio_wipe.toggled.connect(self.on_mode_toggled)
         m_layout.addWidget(self.radio_wipe)
 
-        self.radio_update = QRadioButton("⚡ Cập nhật nhanh (Chỉ ghi đè hệ điều hành, không xóa bất kỳ file nào)")
+        self.radio_update = QRadioButton(tr("deploy_mode_update"))
         self.radio_update.toggled.connect(self.on_mode_toggled)
         m_layout.addWidget(self.radio_update)
 
         layout.addWidget(grp_mode)
 
         # 3. Preservation List Group
-        self.grp_list = QGroupBox("Danh sách Dữ liệu trên Thẻ Đích sẽ được Bảo toàn:")
+        self.grp_list = QGroupBox(tr("deploy_grp_list"))
         l_layout = QVBoxLayout(self.grp_list)
 
         btn_row = QHBoxLayout()
-        self.btn_sel_all = QPushButton("✓ Chọn tất cả")
+        self.btn_sel_all = QPushButton(tr("deploy_btn_sel_all"))
         self.btn_sel_all.setStyleSheet("background: #3a3a3c; color: #fff; padding: 4px 8px; font-size: 11px;")
         self.btn_sel_all.clicked.connect(self.select_all_items)
         btn_row.addWidget(self.btn_sel_all)
 
-        self.btn_desel = QPushButton("✗ Bỏ chọn")
+        self.btn_desel = QPushButton(tr("deploy_btn_desel"))
         self.btn_desel.setStyleSheet("background: #3a3a3c; color: #fff; padding: 4px 8px; font-size: 11px;")
         self.btn_desel.clicked.connect(self.deselect_all_items)
         btn_row.addWidget(self.btn_desel)
@@ -255,14 +269,14 @@ class SDDeploymentDialog(QDialog):
 
         # 5. Buttons
         btn_box = QHBoxLayout()
-        self.btn_cancel = QPushButton("❌ Hủy bỏ")
+        self.btn_cancel = QPushButton(tr("deploy_btn_cancel"))
         self.btn_cancel.setStyleSheet("background: #3a3a3c; color: #fff; padding: 8px 16px; font-weight: bold; border-radius: 6px;")
         self.btn_cancel.clicked.connect(self.reject)
         btn_box.addWidget(self.btn_cancel)
 
         btn_box.addStretch()
 
-        self.btn_start = QPushButton("🚀 Bắt đầu Sao chép & Cài đặt")
+        self.btn_start = QPushButton(tr("deploy_btn_start"))
         self.btn_start.setStyleSheet("background: #10b981; color: #fff; padding: 8px 20px; font-weight: bold; font-size: 13px; border-radius: 6px;")
         self.btn_start.clicked.connect(self.start_deployment)
         btn_box.addWidget(self.btn_start)
@@ -277,7 +291,7 @@ class SDDeploymentDialog(QDialog):
         # Check Saves
         saves_dir = os.path.join(self.target_path, "Saves")
         if os.path.exists(saves_dir):
-            item = QListWidgetItem("💾 Thư mục Saves/ (File lưu game & Save states)")
+            item = QListWidgetItem("💾 Saves/ (Save data & Save states)")
             item.setData(Qt.ItemDataRole.UserRole, "Saves")
             item.setCheckState(Qt.CheckState.Checked)
             self.list_widget.addItem(item)
@@ -285,7 +299,7 @@ class SDDeploymentDialog(QDialog):
         # Check BIOS
         bios_dir = os.path.join(self.target_path, "BIOS")
         if os.path.exists(bios_dir):
-            item = QListWidgetItem("🧩 Thư mục BIOS/ (Các file BIOS hệ máy)")
+            item = QListWidgetItem("🧩 BIOS/ (System BIOS files)")
             item.setData(Qt.ItemDataRole.UserRole, "BIOS")
             item.setCheckState(Qt.CheckState.Checked)
             self.list_widget.addItem(item)
@@ -312,7 +326,7 @@ class SDDeploymentDialog(QDialog):
                     fpath = os.path.join(roms_root, folder)
                     if os.path.isdir(fpath):
                         count = len([f for f in os.listdir(fpath) if os.path.isfile(os.path.join(fpath, f))])
-                        sname = system_names.get(folder.upper(), f"Hệ máy {folder}")
+                        sname = system_names.get(folder.upper(), f"{folder}")
                         label = f"🎮 ROMs - {sname} ({count} files)"
                         
                         item = QListWidgetItem(label)
@@ -323,7 +337,7 @@ class SDDeploymentDialog(QDialog):
                 pass
 
         if self.list_widget.count() == 0:
-            item = QListWidgetItem("⚪ Không tìm thấy ROMs/Saves cũ trên thẻ đích")
+            item = QListWidgetItem(tr("deploy_no_data"))
             item.setFlags(item.flags() & ~Qt.ItemFlag.ItemIsUserCheckable)
             self.list_widget.addItem(item)
 
@@ -361,16 +375,17 @@ class SDDeploymentDialog(QDialog):
                         selected_items.append(rel_path)
 
         # Confirm message
-        mode_str = "Giữ lại ROMs/Saves đã chọn" if mode == "preserve" else ("XÓA SẠCH TOÀN BỘ 100%" if mode == "wipe" else "Cập nhật nhanh")
-        msg = (
-            f"Bạn có chắc chắn muốn sao chép từ Nguồn:\n{self.source_path}\n\n"
-            f"Sang ổ đĩa Đích:\n{self.target_path}?\n\n"
-            f"• Chế độ: {mode_str}\n"
-            f"• Số mục bảo toàn: {len(selected_items)} mục"
-        )
+        if mode == "preserve":
+            mode_str = tr("deploy_mode_str_preserve")
+        elif mode == "wipe":
+            mode_str = tr("deploy_mode_str_wipe")
+        else:
+            mode_str = tr("deploy_mode_str_update")
+
+        msg = tr("deploy_confirm_msg", src=self.source_path, tgt=self.target_path, mode=mode_str, count=len(selected_items))
         reply = QMessageBox.warning(
             self,
-            "Xác nhận Cài đặt & Sao chép",
+            tr("deploy_confirm_title"),
             msg,
             QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No
         )
@@ -404,13 +419,12 @@ class SDDeploymentDialog(QDialog):
         if success:
             QMessageBox.information(
                 self,
-                "Cài đặt Thành công!",
-                f"🎉 Hệ điều hành đã được sao chép hoàn tất vào:\n{self.target_path}!\n\n"
-                "Thẻ nhớ đã sẵn sàng để cắm vào máy Miyoo Mini Plus và sử dụng."
+                tr("deploy_success_title"),
+                tr("deploy_success_msg", path=self.target_path)
             )
             self.accept()
         else:
-            QMessageBox.critical(self, "Lỗi Cài đặt", f"Quá trình cài đặt gặp lỗi:\n{msg}")
+            QMessageBox.critical(self, tr("deploy_error_title"), tr("deploy_error_msg", msg=msg))
 
 class ControlDeck(QWidget):
     def __init__(self, theme_mgr, canvas, frame_widget, parent=None):
@@ -431,17 +445,29 @@ class ControlDeck(QWidget):
         
         self.setFixedWidth(460)
         self.init_ui()
+        add_listener(self.retranslate_ui)
 
     def init_ui(self):
         main_layout = QVBoxLayout(self)
         main_layout.setContentsMargins(10, 10, 10, 10)
         main_layout.setSpacing(10)
 
-        # Title
-        title_lbl = QLabel("🎮 Miyoo Mini Plus Studio & Simulator")
-        title_lbl.setFont(QFont("Segoe UI", 16, QFont.Weight.Bold))
-        title_lbl.setStyleSheet("color: #00f0ff; margin-bottom: 2px;")
-        main_layout.addWidget(title_lbl)
+        # Header Row: Title & Language Switcher
+        header_row = QHBoxLayout()
+        self.title_lbl = QLabel(tr("app_header"))
+        self.title_lbl.setFont(QFont("Segoe UI", 15, QFont.Weight.Bold))
+        self.title_lbl.setStyleSheet("color: #00f0ff; margin-bottom: 2px;")
+        header_row.addWidget(self.title_lbl, 1)
+
+        self.lang_combo = QComboBox()
+        self.lang_combo.addItem("🇺🇸 English", "en")
+        self.lang_combo.addItem("🇻🇳 Tiếng Việt", "vi")
+        self.lang_combo.setCurrentIndex(0 if get_language() == "en" else 1)
+        self.lang_combo.setStyleSheet("background: #2c2c2e; color: #fff; padding: 4px 8px; border-radius: 4px; font-weight: bold; font-size: 11px;")
+        self.lang_combo.currentIndexChanged.connect(self.on_language_switched)
+        header_row.addWidget(self.lang_combo)
+
+        main_layout.addLayout(header_row)
 
         # Tabs (4 Clean Tabs)
         self.tabs = QTabWidget()
@@ -496,16 +522,62 @@ class ControlDeck(QWidget):
         l_boot.setContentsMargins(0, 0, 0, 0)
         l_boot.addWidget(self.create_boot_tab())
 
-        self.tabs.addTab(self.tab_boot_container, "💾 MicroSD & Boot")
-        self.tabs.addTab(self.tab_theme_container, "🎨 Themes & UI")
-        self.tabs.addTab(self.tab_tweaks_container, "🕹️ Miyoo Tweaks")
-        self.tabs.addTab(self.tab_guide_container, "⌨️ Controls")
+        self.tabs.addTab(self.tab_boot_container, tr("tab_boot"))
+        self.tabs.addTab(self.tab_theme_container, tr("tab_theme"))
+        self.tabs.addTab(self.tab_tweaks_container, tr("tab_tweaks"))
+        self.tabs.addTab(self.tab_guide_container, tr("tab_controls"))
 
         self.tabs.currentChanged.connect(self.on_tab_switched)
         from PyQt6.QtCore import QTimer
         QTimer.singleShot(50, self.preload_remaining_tabs)
 
         main_layout.addWidget(self.tabs)
+
+    def on_language_switched(self, idx):
+        code = self.lang_combo.currentData()
+        if code and code != get_language():
+            set_language(code)
+
+    def retranslate_ui(self):
+        self.title_lbl.setText(tr("app_header"))
+        self.tabs.setTabText(0, tr("tab_boot"))
+        self.tabs.setTabText(1, tr("tab_theme"))
+        self.tabs.setTabText(2, tr("tab_tweaks"))
+        self.tabs.setTabText(3, tr("tab_controls"))
+
+        if hasattr(self, 'grp_source') and self.grp_source:
+            self.grp_source.setTitle(tr("grp_source"))
+            self.btn_browse_src.setText(tr("btn_browse_src"))
+            self.lbl_src_hint.setText(tr("hint_src"))
+            self.grp_target.setTitle(tr("grp_target"))
+            self.btn_browse_tgt.setText(tr("btn_browse_tgt"))
+            self.grp_diag.setTitle(tr("grp_diag"))
+            self.btn_reboot.setText(tr("btn_reboot"))
+            self.grp_quick.setTitle(tr("grp_deploy"))
+            self.btn_deploy.setText(tr("btn_deploy"))
+            self.btn_copy_theme_sd.setText(tr("btn_export_theme"))
+            self.update_boot_diagnostic_ui()
+            self.update_target_info()
+            self.populate_sources()
+            self.populate_targets()
+
+        if hasattr(self, 'grp_theme') and self.grp_theme:
+            self.grp_theme.setTitle(tr("grp_theme_select"))
+            self.grp_colors.setTitle(tr("grp_theme_colors"))
+            self.btn_title_col.setText(tr("btn_col_title"))
+            self.btn_hint_col.setText(tr("btn_col_hint"))
+            self.btn_bat_col.setText(tr("btn_col_bat"))
+            self.grp_audio.setTitle(tr("grp_sound_fx"))
+            self.btn_sfx_nav.setText(tr("btn_sfx_nav"))
+            self.btn_sfx_sel.setText(tr("btn_sfx_sel"))
+            self.btn_sfx_back.setText(tr("btn_sfx_back"))
+
+        if hasattr(self, 'grp_shell') and self.grp_shell:
+            self.grp_shell.setTitle(tr("grp_shell"))
+            self.grp_actions.setTitle(tr("grp_hotkeys"))
+
+        if hasattr(self, 'grp_guide') and self.grp_guide:
+            self.grp_guide.setTitle(tr("grp_keyboard_guide"))
 
     def preload_remaining_tabs(self):
         if self.tab_theme_container.layout() is None:
@@ -533,64 +605,64 @@ class ControlDeck(QWidget):
         layout = QVBoxLayout(widget)
         layout.setSpacing(12)
 
-        # 1. Thư mục Nguồn OS (Dùng để Xem trước Preview)
-        grp_source = QGroupBox("1. Thư mục Nguồn OS (Dùng để Xem trước Preview)")
-        s_layout = QVBoxLayout(grp_source)
+        # 1. Thư mục Nguồn OS
+        self.grp_source = QGroupBox(tr("grp_source"))
+        s_layout = QVBoxLayout(self.grp_source)
 
         s_row = QHBoxLayout()
         self.source_combo = QComboBox()
         self.source_combo.setStyleSheet("background: #2c2c2e; color: #00f0ff; padding: 6px; border-radius: 4px; font-weight: bold;")
         s_row.addWidget(self.source_combo, 1)
 
-        btn_browse_src = QPushButton("📁 Browse Nguồn...")
-        btn_browse_src.setStyleSheet("background: #3a3a3c; color: #fff; padding: 6px;")
-        btn_browse_src.clicked.connect(self.browse_source_dir)
-        s_row.addWidget(btn_browse_src)
+        self.btn_browse_src = QPushButton(tr("btn_browse_src"))
+        self.btn_browse_src.setStyleSheet("background: #3a3a3c; color: #fff; padding: 6px;")
+        self.btn_browse_src.clicked.connect(self.browse_source_dir)
+        s_row.addWidget(self.btn_browse_src)
 
-        btn_refresh_src = QPushButton("🔄")
-        btn_refresh_src.setToolTip("Làm mới danh sách nguồn")
-        btn_refresh_src.setStyleSheet("background: #3a3a3c; color: #fff; padding: 6px;")
-        btn_refresh_src.clicked.connect(self.populate_sources)
-        s_row.addWidget(btn_refresh_src)
+        self.btn_refresh_src = QPushButton(tr("btn_refresh_src"))
+        self.btn_refresh_src.setToolTip("Refresh")
+        self.btn_refresh_src.setStyleSheet("background: #3a3a3c; color: #fff; padding: 6px;")
+        self.btn_refresh_src.clicked.connect(self.populate_sources)
+        s_row.addWidget(self.btn_refresh_src)
         s_layout.addLayout(s_row)
 
-        lbl_src_hint = QLabel("💡 Máy Miyoo mô phỏng bên trái đang Xem trước (Preview) trực tiếp từ Thư mục Nguồn này.")
-        lbl_src_hint.setStyleSheet("color: #94a3b8; font-size: 11px;")
-        lbl_src_hint.setWordWrap(True)
-        s_layout.addWidget(lbl_src_hint)
+        self.lbl_src_hint = QLabel(tr("hint_src"))
+        self.lbl_src_hint.setStyleSheet("color: #94a3b8; font-size: 11px;")
+        self.lbl_src_hint.setWordWrap(True)
+        s_layout.addWidget(self.lbl_src_hint)
 
-        layout.addWidget(grp_source)
+        layout.addWidget(self.grp_source)
 
-        # 2. Ổ đĩa / Thư mục Đích (Thẻ nhớ MicroSD để Format & Sao chép)
-        grp_target = QGroupBox("2. Ổ đĩa / Thư mục Đích (Thẻ nhớ MicroSD để Format & Sao chép)")
-        t_layout = QVBoxLayout(grp_target)
+        # 2. Ổ đĩa / Thư mục Đích
+        self.grp_target = QGroupBox(tr("grp_target"))
+        t_layout = QVBoxLayout(self.grp_target)
 
         t_row = QHBoxLayout()
         self.target_combo = QComboBox()
         self.target_combo.setStyleSheet("background: #2c2c2e; color: #10b981; padding: 6px; border-radius: 4px; font-weight: bold;")
         t_row.addWidget(self.target_combo, 1)
 
-        btn_browse_tgt = QPushButton("📁 Browse Đích...")
-        btn_browse_tgt.setStyleSheet("background: #3a3a3c; color: #fff; padding: 6px;")
-        btn_browse_tgt.clicked.connect(self.browse_target_dir)
-        t_row.addWidget(btn_browse_tgt)
+        self.btn_browse_tgt = QPushButton(tr("btn_browse_tgt"))
+        self.btn_browse_tgt.setStyleSheet("background: #3a3a3c; color: #fff; padding: 6px;")
+        self.btn_browse_tgt.clicked.connect(self.browse_target_dir)
+        t_row.addWidget(self.btn_browse_tgt)
 
-        btn_refresh_tgt = QPushButton("🔄")
-        btn_refresh_tgt.setToolTip("Quét lại danh sách ổ đĩa")
-        btn_refresh_tgt.setStyleSheet("background: #3a3a3c; color: #fff; padding: 6px;")
-        btn_refresh_tgt.clicked.connect(self.populate_targets)
-        t_row.addWidget(btn_refresh_tgt)
+        self.btn_refresh_tgt = QPushButton(tr("btn_refresh_tgt"))
+        self.btn_refresh_tgt.setToolTip("Refresh")
+        self.btn_refresh_tgt.setStyleSheet("background: #3a3a3c; color: #fff; padding: 6px;")
+        self.btn_refresh_tgt.clicked.connect(self.populate_targets)
+        t_row.addWidget(self.btn_refresh_tgt)
         t_layout.addLayout(t_row)
 
         self.target_info_lbl = QLabel("")
         self.target_info_lbl.setStyleSheet("color: #38bdf8; font-size: 11px; font-weight: bold;")
         t_layout.addWidget(self.target_info_lbl)
 
-        layout.addWidget(grp_target)
+        layout.addWidget(self.grp_target)
 
         # 3. Chẩn đoán Bootloader Thư mục Nguồn
-        grp_diag = QGroupBox("3. Chẩn đoán Bootloader Thư mục Nguồn (Preview)")
-        diag_layout = QVBoxLayout(grp_diag)
+        self.grp_diag = QGroupBox(tr("grp_diag"))
+        diag_layout = QVBoxLayout(self.grp_diag)
 
         self.boot_status_badge = QLabel()
         self.boot_status_badge.setFont(QFont("Segoe UI", 11, QFont.Weight.Bold))
@@ -604,28 +676,28 @@ class ControlDeck(QWidget):
         self.diag_info_lbl.setWordWrap(True)
         diag_layout.addWidget(self.diag_info_lbl)
 
-        btn_reboot = QPushButton("🔄 Kiểm tra lại & Khởi động lại giả lập")
-        btn_reboot.setStyleSheet("background: #007aff; color: #fff; font-weight: bold; padding: 8px; border-radius: 4px;")
-        btn_reboot.clicked.connect(self.trigger_reboot)
-        diag_layout.addWidget(btn_reboot)
+        self.btn_reboot = QPushButton(tr("btn_reboot"))
+        self.btn_reboot.setStyleSheet("background: #007aff; color: #fff; font-weight: bold; padding: 8px; border-radius: 4px;")
+        self.btn_reboot.clicked.connect(self.trigger_reboot)
+        diag_layout.addWidget(self.btn_reboot)
 
-        layout.addWidget(grp_diag)
+        layout.addWidget(self.grp_diag)
 
         # 4. Công cụ Sao chép & Format Thẻ nhớ
-        grp_quick = QGroupBox("4. Cài đặt & Sao chép sang Thẻ nhớ")
-        q_layout = QVBoxLayout(grp_quick)
+        self.grp_quick = QGroupBox(tr("grp_deploy"))
+        q_layout = QVBoxLayout(self.grp_quick)
 
-        btn_deploy = QPushButton("🚀 Sao chép & Format Thẻ nhớ (Nguồn ➔ Đích)")
-        btn_deploy.setStyleSheet("background: #10b981; color: #fff; font-weight: bold; padding: 10px; border-radius: 6px; font-size: 13px;")
-        btn_deploy.clicked.connect(self.open_deployment_dialog)
-        q_layout.addWidget(btn_deploy)
+        self.btn_deploy = QPushButton(tr("btn_deploy"))
+        self.btn_deploy.setStyleSheet("background: #10b981; color: #fff; font-weight: bold; padding: 10px; border-radius: 6px; font-size: 13px;")
+        self.btn_deploy.clicked.connect(self.open_deployment_dialog)
+        q_layout.addWidget(self.btn_deploy)
 
-        btn_copy_theme_sd = QPushButton("📂 Xuất Theme Nguồn sang Thẻ nhớ Đích (Themes/)")
-        btn_copy_theme_sd.setStyleSheet("background: #0284c7; color: #fff; padding: 8px; font-weight: bold; border-radius: 4px;")
-        btn_copy_theme_sd.clicked.connect(self.export_theme_to_sd)
-        q_layout.addWidget(btn_copy_theme_sd)
+        self.btn_copy_theme_sd = QPushButton(tr("btn_export_theme"))
+        self.btn_copy_theme_sd.setStyleSheet("background: #0284c7; color: #fff; padding: 8px; font-weight: bold; border-radius: 4px;")
+        self.btn_copy_theme_sd.clicked.connect(self.export_theme_to_sd)
+        q_layout.addWidget(self.btn_copy_theme_sd)
 
-        layout.addWidget(grp_quick)
+        layout.addWidget(self.grp_quick)
         layout.addStretch()
 
         self.populate_sources()
@@ -661,16 +733,16 @@ class ControlDeck(QWidget):
         parent_dir = os.path.dirname(self.sys_data.workspace_root)
         kayzit_payload = os.path.join(parent_dir, "kayzit-os", "payload")
         if os.path.exists(kayzit_payload):
-            known_sources.append((kayzit_payload, "⚡ Kayzit OS Payload (kayzit-os/payload)"))
+            known_sources.append((kayzit_payload, tr("src_opt_kayzit")))
 
         # 2. Project Workspace Virtual SD
         proj_dir = self.sys_data.workspace_root
-        known_sources.append((proj_dir, "Virtual SD (Project Workspace)"))
+        known_sources.append((proj_dir, tr("src_opt_workspace")))
 
         # 3. Any Payload subfolder inside workspace
         ws_payload = os.path.join(proj_dir, "payload")
         if os.path.exists(ws_payload) and ws_payload != kayzit_payload:
-            known_sources.append((ws_payload, "Custom Payload Folder (payload/)"))
+            known_sources.append((ws_payload, tr("src_opt_custom")))
 
         for path, label in known_sources:
             self.source_combo.addItem(label, path)
@@ -699,9 +771,9 @@ class ControlDeck(QWidget):
                     drv = f"{d}:\\"
                     try:
                         has_sd = os.path.exists(os.path.join(drv, ".tmp_update")) or os.path.exists(os.path.join(drv, "Roms")) or os.path.exists(os.path.join(drv, ".kayzit"))
-                        tag = " [MicroSD Card]" if has_sd else " [Ổ đĩa]"
+                        tag = tr("tgt_tag_sd") if has_sd else tr("tgt_tag_drive")
                         if d == 'E':
-                            tag = " [Miyoo MicroSD]"
+                            tag = tr("tgt_tag_miyoo")
                         available.append((drv, f"{drv}{tag}"))
                     except Exception:
                         available.append((drv, drv))
@@ -713,7 +785,7 @@ class ControlDeck(QWidget):
 
         # Add Virtual Target option
         virt_tgt = os.path.join(self.sys_data.workspace_root, "virtual_sd_export")
-        available.append((virt_tgt, "📁 Thư mục ảo Xuất Thẻ nhớ (virtual_sd_export)"))
+        available.append((virt_tgt, tr("tgt_virtual_export")))
 
         for path, label in available:
             self.target_combo.addItem(label, path)
@@ -729,15 +801,15 @@ class ControlDeck(QWidget):
         self.update_target_info()
 
     def browse_source_dir(self):
-        folder = QFileDialog.getExistingDirectory(self, "Chọn Thư mục Nguồn OS (Xem trước Preview)", self.get_source_path())
+        folder = QFileDialog.getExistingDirectory(self, tr("btn_browse_src"), self.get_source_path())
         if folder:
-            self.source_combo.addItem(f"📁 Nguồn: {folder}", folder)
+            self.source_combo.addItem(f"{tr('src_prefix')}{folder}", folder)
             self.source_combo.setCurrentIndex(self.source_combo.count() - 1)
 
     def browse_target_dir(self):
-        folder = QFileDialog.getExistingDirectory(self, "Chọn Ổ đĩa / Thư mục Đích (Format/Sao chép)", self.get_target_path())
+        folder = QFileDialog.getExistingDirectory(self, tr("btn_browse_tgt"), self.get_target_path())
         if folder:
-            self.target_combo.addItem(f"📁 Đích: {folder}", folder)
+            self.target_combo.addItem(f"{tr('tgt_prefix')}{folder}", folder)
             self.target_combo.setCurrentIndex(self.target_combo.count() - 1)
 
     def on_source_changed(self):
@@ -773,11 +845,11 @@ class ControlDeck(QWidget):
                 usage = shutil.disk_usage(tgt)
                 free_gb = usage.free / (1024 ** 3)
                 total_gb = usage.total / (1024 ** 3)
-                self.target_info_lbl.setText(f"💾 Dung lượng trống: {free_gb:.1f} GB / {total_gb:.1f} GB ({tgt})")
+                self.target_info_lbl.setText(tr("tgt_info_free", free=free_gb, total=total_gb, path=tgt))
             else:
-                self.target_info_lbl.setText(f"📁 Thư mục chưa tồn tại (sẽ tự tạo khi sao chép): {tgt}")
+                self.target_info_lbl.setText(tr("tgt_info_missing", path=tgt))
         except Exception:
-            self.target_info_lbl.setText(f"📁 Đích: {tgt}")
+            self.target_info_lbl.setText(f"{tgt}")
 
     def trigger_reboot(self):
         src = self.get_source_path()
@@ -795,29 +867,29 @@ class ControlDeck(QWidget):
         diag = self.sys_data.boot_diag
         
         if diag.boot_mode in ["CUSTOM_OS", "ONION_OS"]:
-            self.boot_status_badge.setText("⚡ BOOT MODE: CUSTOM OS (MICROSD ACTIVE)")
+            self.boot_status_badge.setText(tr("boot_custom"))
             self.boot_status_badge.setStyleSheet("background: #007aff; color: #ffffff; padding: 8px; border-radius: 6px;")
         elif diag.boot_mode == "STOCK_OS":
-            self.boot_status_badge.setText("⚙️ BOOT MODE: STOCK OS (NAND FACTORY)")
+            self.boot_status_badge.setText(tr("boot_stock"))
             self.boot_status_badge.setStyleSheet("background: #f59e0b; color: #000000; padding: 8px; border-radius: 6px;")
         else:
-            self.boot_status_badge.setText("⚠️ BOOT MODE: NO SD CARD INSERTED")
+            self.boot_status_badge.setText(tr("boot_nosd"))
             self.boot_status_badge.setStyleSheet("background: #ef4444; color: #ffffff; padding: 8px; border-radius: 6px;")
 
-        u_stat = "🟢 Found (Installed)" if diag.has_tmp_update else "🔴 Missing"
-        m_stat = "🟢 Found (MainUI & Daemons)" if (diag.has_miyoo or os.path.exists(os.path.join(diag.path, ".kayzit"))) else "🔴 Missing"
-        t_stat = f"🟢 Found ({diag.theme_count} themes)" if diag.has_themes else "⚪ None"
-        r_stat = f"🟢 Found ({diag.rom_count} ROMs indexed)" if diag.has_roms else "⚪ None"
+        u_stat = tr("stat_found_installed") if diag.has_tmp_update else tr("stat_missing")
+        m_stat = tr("stat_found_daemons") if (diag.has_miyoo or os.path.exists(os.path.join(diag.path, ".kayzit"))) else tr("stat_missing")
+        t_stat = tr("stat_found_themes", count=diag.theme_count) if diag.has_themes else tr("stat_none")
+        r_stat = tr("stat_found_roms", count=diag.rom_count) if diag.has_roms else tr("stat_none")
 
         text = (
-            f"<b>Source Payload Path:</b> <code>{diag.path}</code><br><br>"
-            f"<b>Boot Diagnostics:</b><br>"
-            f"• <b>Linux Kernel:</b> 🟢 Initialized (NAND Flash)<br>"
-            f"• <b>.tmp_update/ :</b> {u_stat}<br>"
-            f"• <b>OS Payload/ :</b> {m_stat}<br>"
-            f"• <b>Themes/ :</b> {t_stat}<br>"
-            f"• <b>Roms/ :</b> {r_stat}<br><br>"
-            f"<b>Kernel Decision:</b><br>{diag.status_message}"
+            tr("diag_source_path", path=diag.path) +
+            tr("diag_header") +
+            tr("diag_kernel") +
+            tr("diag_tmp_update", stat=u_stat) +
+            tr("diag_payload", stat=m_stat) +
+            tr("diag_themes", stat=t_stat) +
+            tr("diag_roms", stat=r_stat) +
+            tr("diag_decision", msg=diag.status_message)
         )
         self.diag_info_lbl.setText(text)
 
@@ -845,8 +917,8 @@ class ControlDeck(QWidget):
         layout.setSpacing(12)
 
         # 1. Theme Selector Group
-        grp_theme = QGroupBox("Theme Selection")
-        t_layout = QVBoxLayout(grp_theme)
+        self.grp_theme = QGroupBox(tr("grp_theme_select"))
+        t_layout = QVBoxLayout(self.grp_theme)
 
         self.theme_combo = QComboBox()
         self.theme_combo.setStyleSheet("background: #2c2c2e; color: #fff; padding: 6px; border-radius: 4px;")
@@ -869,11 +941,11 @@ class ControlDeck(QWidget):
         self.update_theme_info()
         t_layout.addWidget(self.theme_info_lbl)
 
-        layout.addWidget(grp_theme)
+        layout.addWidget(self.grp_theme)
 
         # 2. Audio Engine (BGM & SFX)
-        grp_audio = QGroupBox("Audio Engine (BGM & Sound Effects)")
-        a_layout = QVBoxLayout(grp_audio)
+        self.grp_audio = QGroupBox(tr("grp_sound_fx"))
+        a_layout = QVBoxLayout(self.grp_audio)
 
         self.bgm_chk = QCheckBox("Background Music (BGM)")
         self.bgm_chk.setChecked(True)
@@ -897,44 +969,44 @@ class ControlDeck(QWidget):
         a_layout.addWidget(self.sfx_chk)
 
         sfx_btns = QHBoxLayout()
-        btn_nav = QPushButton("🔊 Nav")
-        btn_nav.setStyleSheet("background: #2c2c2e; color: #fff; padding: 4px;")
-        btn_nav.clicked.connect(lambda: self.theme_mgr.play_sfx("change"))
-        sfx_btns.addWidget(btn_nav)
+        self.btn_sfx_nav = QPushButton(tr("btn_sfx_nav"))
+        self.btn_sfx_nav.setStyleSheet("background: #2c2c2e; color: #fff; padding: 4px;")
+        self.btn_sfx_nav.clicked.connect(lambda: self.theme_mgr.play_sfx("change"))
+        sfx_btns.addWidget(self.btn_sfx_nav)
 
-        btn_sel = QPushButton("🔊 Select")
-        btn_sel.setStyleSheet("background: #2c2c2e; color: #fff; padding: 4px;")
-        btn_sel.clicked.connect(lambda: self.theme_mgr.play_sfx("select"))
-        sfx_btns.addWidget(btn_sel)
+        self.btn_sfx_sel = QPushButton(tr("btn_sfx_sel"))
+        self.btn_sfx_sel.setStyleSheet("background: #2c2c2e; color: #fff; padding: 4px;")
+        self.btn_sfx_sel.clicked.connect(lambda: self.theme_mgr.play_sfx("select"))
+        sfx_btns.addWidget(self.btn_sfx_sel)
 
-        btn_back = QPushButton("🔊 Back")
-        btn_back.setStyleSheet("background: #2c2c2e; color: #fff; padding: 4px;")
-        btn_back.clicked.connect(lambda: self.theme_mgr.play_sfx("back"))
-        sfx_btns.addWidget(btn_back)
+        self.btn_sfx_back = QPushButton(tr("btn_sfx_back"))
+        self.btn_sfx_back.setStyleSheet("background: #2c2c2e; color: #fff; padding: 4px;")
+        self.btn_sfx_back.clicked.connect(lambda: self.theme_mgr.play_sfx("back"))
+        sfx_btns.addWidget(self.btn_sfx_back)
         a_layout.addLayout(sfx_btns)
 
-        layout.addWidget(grp_audio)
+        layout.addWidget(self.grp_audio)
 
         # 3. Custom Color Pickers
-        grp_colors = QGroupBox("Custom UI Colors")
-        c_layout = QVBoxLayout(grp_colors)
+        self.grp_colors = QGroupBox(tr("grp_theme_colors"))
+        c_layout = QVBoxLayout(self.grp_colors)
 
-        btn_title_col = QPushButton("🎨 Change Title Color")
-        btn_title_col.setStyleSheet("background: #2c2c2e; color: #fff; padding: 6px;")
-        btn_title_col.clicked.connect(self.pick_title_color)
-        c_layout.addWidget(btn_title_col)
+        self.btn_title_col = QPushButton(tr("btn_col_title"))
+        self.btn_title_col.setStyleSheet("background: #2c2c2e; color: #fff; padding: 6px;")
+        self.btn_title_col.clicked.connect(self.pick_title_color)
+        c_layout.addWidget(self.btn_title_col)
 
-        btn_hint_col = QPushButton("🎨 Change Hint/Bottom Color")
-        btn_hint_col.setStyleSheet("background: #2c2c2e; color: #fff; padding: 6px;")
-        btn_hint_col.clicked.connect(self.pick_hint_color)
-        c_layout.addWidget(btn_hint_col)
+        self.btn_hint_col = QPushButton(tr("btn_col_hint"))
+        self.btn_hint_col.setStyleSheet("background: #2c2c2e; color: #fff; padding: 6px;")
+        self.btn_hint_col.clicked.connect(self.pick_hint_color)
+        c_layout.addWidget(self.btn_hint_col)
 
-        btn_bat_col = QPushButton("🎨 Change Battery Color")
-        btn_bat_col.setStyleSheet("background: #2c2c2e; color: #fff; padding: 6px;")
-        btn_bat_col.clicked.connect(self.pick_bat_color)
-        c_layout.addWidget(btn_bat_col)
+        self.btn_bat_col = QPushButton(tr("btn_col_bat"))
+        self.btn_bat_col.setStyleSheet("background: #2c2c2e; color: #fff; padding: 6px;")
+        self.btn_bat_col.clicked.connect(self.pick_bat_color)
+        c_layout.addWidget(self.btn_bat_col)
 
-        layout.addWidget(grp_colors)
+        layout.addWidget(self.grp_colors)
         layout.addStretch()
 
         scroll.setWidget(widget)
@@ -960,8 +1032,8 @@ class ControlDeck(QWidget):
         layout.setSpacing(12)
 
         # 1. Miyoo Handheld Shell Casing
-        grp_shell = QGroupBox("Miyoo Mini Plus Casing Shell")
-        s_layout = QVBoxLayout(grp_shell)
+        self.grp_shell = QGroupBox(tr("grp_shell"))
+        s_layout = QVBoxLayout(self.grp_shell)
 
         self.shell_combo = QComboBox()
         self.shell_combo.setStyleSheet("background: #2c2c2e; color: #fff; padding: 6px; border-radius: 4px;")
@@ -969,11 +1041,11 @@ class ControlDeck(QWidget):
             self.shell_combo.addItem(sname)
         self.shell_combo.currentTextChanged.connect(self.on_shell_changed)
         s_layout.addWidget(self.shell_combo)
-        layout.addWidget(grp_shell)
+        layout.addWidget(self.grp_shell)
 
         # 2. Quick Screen Actions
-        grp_actions = QGroupBox("Quick Navigation & Screen Tests")
-        act_layout = QVBoxLayout(grp_actions)
+        self.grp_actions = QGroupBox(tr("grp_hotkeys"))
+        act_layout = QVBoxLayout(self.grp_actions)
 
         btn_gs = QPushButton("⭐ Toggle Game Switcher (MENU)")
         btn_gs.setStyleSheet("background: #34c759; color: #fff; font-weight: bold; padding: 8px;")
@@ -995,12 +1067,12 @@ class ControlDeck(QWidget):
         btn_apps.clicked.connect(lambda: self.switch_to_tab(2))
         act_layout.addWidget(btn_apps)
 
-        btn_tweaks = QPushButton("⚡ Go to Onion Tweaks")
+        btn_tweaks = QPushButton("⚡ Go to System Tweaks")
         btn_tweaks.setStyleSheet("background: #2c2c2e; color: #fff; padding: 6px;")
         btn_tweaks.clicked.connect(self.open_tweaks)
         act_layout.addWidget(btn_tweaks)
 
-        layout.addWidget(grp_actions)
+        layout.addWidget(self.grp_actions)
 
         # 3. System Status Controls
         grp_status = QGroupBox("Simulate Device Status")
@@ -1032,23 +1104,18 @@ class ControlDeck(QWidget):
         layout = QVBoxLayout(widget)
         layout.setSpacing(12)
 
-        guide_lbl = QLabel("🎮 Keyboard & Gamepad Controls")
-        guide_lbl.setFont(QFont("Segoe UI", 13, QFont.Weight.Bold))
-        guide_lbl.setStyleSheet("color: #007aff;")
-        layout.addWidget(guide_lbl)
-
-        box = QGroupBox("Keybindings Mapping")
-        b_layout = QVBoxLayout(box)
+        self.grp_guide = QGroupBox(tr("grp_keyboard_guide"))
+        b_layout = QVBoxLayout(self.grp_guide)
         
         keys = [
-            ("W / A / S / D", "D-Pad Navigation (Up / Left / Down / Right)"),
-            ("Arrow Keys", "D-Pad Navigation"),
-            ("J  /  Enter", "A Button (Select / Launch Game)"),
-            ("K  /  Escape", "B Button (Back / Cancel)"),
-            ("U", "X Button (Toggle Favorite / Delete Switcher Slot)"),
-            ("I", "Y Button (Context Action)"),
-            ("M  /  Space", "MENU Button (Onion Game Switcher)"),
-            ("Q  /  E", "L1 / R1 Triggers (Previous / Next Tab)"),
+            ("W / A / S / D", tr("ctrl_dpad")),
+            ("Arrow Keys", tr("ctrl_dpad")),
+            ("J  /  Enter", tr("ctrl_btn_a")),
+            ("K  /  Escape", tr("ctrl_btn_b")),
+            ("U", tr("ctrl_btn_x")),
+            ("I", tr("ctrl_btn_y")),
+            ("M  /  Space", tr("ctrl_menu")),
+            ("Q  /  E", tr("ctrl_shoulders")),
             ("Mouse Click", "Click physical buttons directly on the Miyoo casing")
         ]
 
@@ -1063,7 +1130,7 @@ class ControlDeck(QWidget):
             row.addWidget(lbl_d, 1)
             b_layout.addLayout(row)
 
-        layout.addWidget(box)
+        layout.addWidget(self.grp_guide)
         layout.addStretch()
 
         scroll.setWidget(widget)

@@ -3,6 +3,7 @@ import datetime
 from PyQt6.QtWidgets import QWidget
 from PyQt6.QtGui import QPainter, QColor, QFont, QPen, QBrush, QPixmap, QLinearGradient, QRadialGradient
 from PyQt6.QtCore import Qt, QRectF, QPointF, QTimer
+from simulator.i18n import tr, add_listener
 
 class ScreenCanvas(QWidget):
     def __init__(self, theme_mgr, system_data, parent=None):
@@ -31,34 +32,7 @@ class ScreenCanvas(QWidget):
         # Game Switcher Overlay
         self.switcher_open = False
         self.switcher_idx = 0
-        
-        # Tweaks data
-        self.tweaks_list = [
-            {"name": "Quick Save/Load on Exit", "val": "Enabled", "desc": "Auto save state when exiting and auto resume", "icon": "save"},
-            {"name": "Menu Button Single-Tap", "val": "Game Switcher", "desc": "Action when pressing Menu button once", "icon": "menu_btn"},
-            {"name": "Menu Button Long-Press", "val": "Exit to Menu", "desc": "Action when holding Menu button for 1s", "icon": "power"},
-            {"name": "CPU Overclock Profile", "val": "Smart Boost (1.4GHz)", "desc": "Dynamically boost CPU for heavy PS1/NDS games", "icon": "cpu"},
-            {"name": "Wi-Fi Web File Manager", "val": "Running (Port 80)", "desc": "Upload ROMs/Saves via web browser", "icon": "web"},
-            {"name": "Samba File Sharing", "val": "Active (\\\\miyoo)", "desc": "Access SD card directly in Windows Explorer", "icon": "network"},
-            {"name": "Cloud Save Sync (Rclone)", "val": "Google Drive", "desc": "Auto sync game saves with cloud storage", "icon": "cloud"},
-            {"name": "RetroAchievements", "val": "Logged In", "desc": "Track retro game achievements online", "icon": "trophy"},
-            {"name": "Top LED Indicator", "val": "Battery Reactive", "desc": "LED behavior during gameplay and sleep", "icon": "led"}
-        ]
-        
-        # Settings data
-        self.settings_list = [
-            {"name": "Theme Selection", "val": "Browse Themes", "icon": "theme"},
-            {"name": "Wi-Fi & Network", "val": "Connected (RetroNet)", "icon": "wifi"},
-            {"name": "Display & Brightness", "val": "Level 8 / 10", "icon": "brightness"},
-            {"name": "Audio & Volume", "val": "Level 14 / 20", "icon": "volume"},
-            {"name": "Hardware Overclock", "val": "1.4GHz Turbo Profile", "icon": "cpu"},
-            {"name": "Haptic Rumble & Vibration", "val": "Strength Level 7", "icon": "rumble"},
-            {"name": "Clock / NTP Time Sync", "val": "Auto (GMT+7)", "icon": "clock"},
-            {"name": "Storage & MicroSD Card", "val": "MicroSD SDHC/XC", "icon": "sdcard"},
-            {"name": "Language / Ngôn ngữ", "val": "English / Tiếng Việt", "icon": "language"},
-            {"name": "About Kayzit OS", "val": "v1.0.0 (SSD202D)", "icon": "about"}
-        ]
-        
+
         # Status indicators
         self.battery_level = 96
         self.is_charging = False
@@ -71,6 +45,37 @@ class ScreenCanvas(QWidget):
         self.timer = QTimer(self)
         self.timer.timeout.connect(self.on_timer_tick)
         self.timer.start(50)
+        
+        add_listener(self.update)
+
+    @property
+    def tweaks_list(self):
+        return [
+            {"name": tr("tweak_quicksave"), "val": tr("tweak_quicksave_val"), "desc": tr("tweak_quicksave_desc"), "icon": "save"},
+            {"name": tr("tweak_menu_tap"), "val": tr("tweak_menu_tap_val"), "desc": tr("tweak_menu_tap_desc"), "icon": "menu_btn"},
+            {"name": tr("tweak_menu_hold"), "val": tr("tweak_menu_hold_val"), "desc": tr("tweak_menu_hold_desc"), "icon": "power"},
+            {"name": tr("tweak_cpu"), "val": tr("tweak_cpu_val"), "desc": tr("tweak_cpu_desc"), "icon": "cpu"},
+            {"name": tr("tweak_web"), "val": tr("tweak_web_val"), "desc": tr("tweak_web_desc"), "icon": "web"},
+            {"name": tr("tweak_samba"), "val": tr("tweak_samba_val"), "desc": tr("tweak_samba_desc"), "icon": "network"},
+            {"name": tr("tweak_cloud"), "val": tr("tweak_cloud_val"), "desc": tr("tweak_cloud_desc"), "icon": "cloud"},
+            {"name": tr("tweak_achieve"), "val": tr("tweak_achieve_val"), "desc": tr("tweak_achieve_desc"), "icon": "trophy"},
+            {"name": tr("tweak_led"), "val": tr("tweak_led_val"), "desc": tr("tweak_led_desc"), "icon": "led"}
+        ]
+
+    @property
+    def settings_list(self):
+        return [
+            {"name": tr("setting_theme"), "val": tr("setting_theme_val"), "icon": "theme"},
+            {"name": tr("setting_wifi"), "val": tr("setting_wifi_val"), "icon": "wifi"},
+            {"name": tr("setting_brightness"), "val": tr("setting_brightness_val"), "icon": "brightness"},
+            {"name": tr("setting_volume"), "val": tr("setting_volume_val"), "icon": "volume"},
+            {"name": tr("setting_cpu"), "val": tr("setting_cpu_val"), "icon": "cpu"},
+            {"name": tr("setting_rumble"), "val": tr("setting_rumble_val"), "icon": "rumble"},
+            {"name": tr("setting_clock"), "val": tr("setting_clock_val"), "icon": "clock"},
+            {"name": tr("setting_storage"), "val": tr("setting_storage_val"), "icon": "sdcard"},
+            {"name": tr("setting_language"), "val": tr("setting_language_val"), "icon": "language"},
+            {"name": tr("setting_about"), "val": tr("setting_about_val"), "icon": "about"}
+        ]
 
     def on_timer_tick(self):
         if self.current_view == 'GAME_RUNNING':
@@ -358,15 +363,15 @@ class ScreenCanvas(QWidget):
         v = self.current_view
         boot_mode = self.sys_data.boot_diag.boot_mode
         if boot_mode == 'STOCK_OS':
-            hints = [("A", "Select"), ("B", "Back"), ("💡", "Stock Mode: No SD")]
+            hints = [("A", tr("ui_nav_select")), ("B", tr("ui_nav_back")), ("💡", "Stock Mode: No SD")]
         elif v == 'MAIN_CAROUSEL':
-            hints = [("A", "Open"), ("MENU", "Switcher"), ("L/R", "Tabs")]
+            hints = [("A", tr("ui_nav_open")), ("MENU", tr("ui_nav_switcher")), ("L/R", tr("ui_nav_tabs"))]
         elif v == 'GAME_LIST':
-            hints = [("A", "Play"), ("B", "Back"), ("X", "Star"), ("MENU", "Switcher")]
+            hints = [("A", "Play"), ("B", tr("ui_nav_back")), ("X", "Star"), ("MENU", tr("ui_nav_switcher"))]
         elif v == 'TWEAKS':
-            hints = [("A", "Toggle"), ("B", "Back")]
+            hints = [("A", tr("ui_nav_toggle")), ("B", tr("ui_nav_back"))]
         else:
-            hints = [("A", "Select"), ("B", "Back"), ("MENU", "Switcher")]
+            hints = [("A", tr("ui_nav_select")), ("B", tr("ui_nav_back")), ("MENU", tr("ui_nav_switcher"))]
 
         hx = 25
         for btn, label in hints:
@@ -386,11 +391,11 @@ class ScreenCanvas(QWidget):
 
     def draw_main_carousel(self, painter, theme):
         tabs = [
-            ("Favorites", "favorites", "Quick Access to Starred Games"),
-            ("Games Hub", "games", "Browse All Consoles & ROMs"),
-            ("App Studio", "apps", "Cloud Sync, Tools & App Store"),
-            ("Retro Cores", "expert", "Arcade Classics & Standalone Engines"),
-            ("Kayzit Settings", "settings", "Overclock 1.4GHz, Screen & Haptics")
+            (tr("tab_name_favorites"), "favorites", tr("tab_sub_favorites")),
+            (tr("tab_name_games"), "games", tr("tab_sub_games")),
+            (tr("tab_name_apps"), "apps", tr("tab_sub_apps")),
+            (tr("tab_name_expert"), "expert", tr("tab_sub_expert")),
+            (tr("tab_name_settings"), "settings", tr("tab_sub_settings"))
         ]
 
         title, raw_name, subtitle = tabs[self.current_tab]
@@ -476,7 +481,7 @@ class ScreenCanvas(QWidget):
 
                 painter.setPen(QPen(QColor("#0f172a")))
                 painter.setFont(QFont("Segoe UI", 9, QFont.Weight.Black))
-                painter.drawText(QRectF(px, py, pill_w, pill_h), Qt.AlignmentFlag.AlignCenter, "PRESS [A] OPEN")
+                painter.drawText(QRectF(px, py, pill_w, pill_h), Qt.AlignmentFlag.AlignCenter, tr("ui_press_open"))
 
             elif -2 <= offset <= 2:
                 # Flanking Side Cards
@@ -523,7 +528,7 @@ class ScreenCanvas(QWidget):
     def draw_emu_list(self, painter, theme):
         painter.setPen(QPen(QColor("#00f0ff")))
         painter.setFont(QFont("Segoe UI", 16, QFont.Weight.Black))
-        painter.drawText(QRectF(25, 46, 350, 28), Qt.AlignmentFlag.AlignVCenter | Qt.AlignmentFlag.AlignLeft, "🎮 CONSOLES & SYSTEMS")
+        painter.drawText(QRectF(25, 46, 350, 28), Qt.AlignmentFlag.AlignVCenter | Qt.AlignmentFlag.AlignLeft, "🎮 " + tr("view_title_consoles"))
 
         list_x = 25
         list_y = 78
@@ -692,7 +697,7 @@ class ScreenCanvas(QWidget):
     def draw_app_list(self, painter, theme):
         painter.setPen(QPen(QColor("#00f0ff")))
         painter.setFont(QFont("Segoe UI", 16, QFont.Weight.Black))
-        painter.drawText(QRectF(25, 46, 350, 28), Qt.AlignmentFlag.AlignVCenter | Qt.AlignmentFlag.AlignLeft, "⚡ KAYZIT APPLICATIONS")
+        painter.drawText(QRectF(25, 46, 350, 28), Qt.AlignmentFlag.AlignVCenter | Qt.AlignmentFlag.AlignLeft, "⚡ " + tr("view_title_apps"))
 
         list_x = 25
         list_y = 78
@@ -758,7 +763,7 @@ class ScreenCanvas(QWidget):
     def draw_expert_list(self, painter, theme):
         painter.setPen(QPen(QColor("#00f0ff")))
         painter.setFont(QFont("Segoe UI", 16, QFont.Weight.Black))
-        painter.drawText(QRectF(25, 46, 350, 28), Qt.AlignmentFlag.AlignVCenter | Qt.AlignmentFlag.AlignLeft, "🕹️ RETRO CORES & EXPERT")
+        painter.drawText(QRectF(25, 46, 350, 28), Qt.AlignmentFlag.AlignVCenter | Qt.AlignmentFlag.AlignLeft, "🕹️ " + tr("view_title_cores"))
 
         list_x = 25
         list_y = 78
@@ -794,7 +799,7 @@ class ScreenCanvas(QWidget):
     def draw_settings_list(self, painter, theme):
         painter.setPen(QPen(QColor("#00f0ff")))
         painter.setFont(QFont("Segoe UI", 16, QFont.Weight.Black))
-        painter.drawText(QRectF(25, 46, 350, 28), Qt.AlignmentFlag.AlignVCenter | Qt.AlignmentFlag.AlignLeft, "⚙️ SYSTEM PREFERENCES")
+        painter.drawText(QRectF(25, 46, 350, 28), Qt.AlignmentFlag.AlignVCenter | Qt.AlignmentFlag.AlignLeft, "⚙️ " + tr("view_title_settings"))
 
         list_x = 25
         list_y = 78
@@ -840,7 +845,7 @@ class ScreenCanvas(QWidget):
     def draw_tweaks_view(self, painter, theme):
         painter.setPen(QPen(QColor("#00f0ff")))
         painter.setFont(QFont("Segoe UI", 16, QFont.Weight.Black))
-        painter.drawText(QRectF(25, 46, 350, 28), Qt.AlignmentFlag.AlignVCenter | Qt.AlignmentFlag.AlignLeft, "⚡ KAYZIT HARDWARE TWEAKS")
+        painter.drawText(QRectF(25, 46, 350, 28), Qt.AlignmentFlag.AlignVCenter | Qt.AlignmentFlag.AlignLeft, "⚡ " + tr("view_title_tweaks"))
 
         list_x = 25
         list_y = 78
@@ -974,7 +979,7 @@ class ScreenCanvas(QWidget):
 
         painter.setPen(QPen(QColor("#00f0ff")))
         painter.setFont(QFont("Segoe UI", 14, QFont.Weight.Black))
-        painter.drawText(QRectF(0, 0, 640, 45), Qt.AlignmentFlag.AlignCenter, "⚡ KAYZIT INSTANT GAME SWITCHER")
+        painter.drawText(QRectF(0, 0, 640, 45), Qt.AlignmentFlag.AlignCenter, "⚡ " + tr("view_title_switcher"))
 
         slots = self.sys_data.switcher_slots
         center_x = 320
@@ -1036,7 +1041,7 @@ class ScreenCanvas(QWidget):
         painter.fillRect(0, 442, 640, 1, QColor(255, 255, 255, 30))
         painter.setFont(QFont("Segoe UI", 10, QFont.Weight.DemiBold))
         painter.setPen(QPen(QColor("#cbd5e1")))
-        painter.drawText(QRectF(0, 442, 640, 38), Qt.AlignmentFlag.AlignCenter, "[A] RESUME GAME   •   [B] CLOSE   •   [X] CLOSE SLOT   •   [◀/▶] SWITCH")
+        painter.drawText(QRectF(0, 442, 640, 38), Qt.AlignmentFlag.AlignCenter, tr("switcher_dock"))
 
     def draw_stock_main_menu(self, painter):
         # Stock Miyoo Blue Background
