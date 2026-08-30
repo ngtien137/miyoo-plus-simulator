@@ -130,13 +130,28 @@ class ThemeManager:
         
         self.scan_themes()
         
-        # Set default theme
-        if "Silky" in self.themes:
-            self.set_theme("Silky")
-        elif "Onion Boy" in self.themes:
-            self.set_theme("Onion Boy")
+        # Set default theme: Kayzit Basic (Next-gen 3D Glass OS)
+        if "Kayzit Basic" in self.themes:
+            self.set_theme("Kayzit Basic")
+        elif "Kayzit OS" in self.themes:
+            self.set_theme("Kayzit OS")
         elif self.themes:
             self.set_theme(list(self.themes.keys())[0])
+
+    def get_active_theme_from_config(self, base_root):
+        if not base_root or not os.path.exists(base_root):
+            return None
+        cfg_file = os.path.join(base_root, ".tmp_update", "config", "active_theme")
+        if os.path.exists(cfg_file):
+            try:
+                with open(cfg_file, 'r', encoding='utf-8', errors='ignore') as f:
+                    tpath = f.read().strip()
+                    tname = os.path.basename(tpath.rstrip('/\\'))
+                    if tname in self.themes:
+                        return tname
+            except Exception:
+                pass
+        return None
 
     def scan_themes(self):
         self.themes.clear()
@@ -162,13 +177,20 @@ class ThemeManager:
                 theme = Theme(name, root, data)
                 self.themes[name] = theme
 
-    def reload_themes(self, themes_dir=None):
+    def reload_themes(self, themes_dir=None, active_theme_name=None):
         if themes_dir:
             self.themes_dir = themes_dir
         self.themes.clear()
         self._sfx_cache.clear()
         self.scan_themes()
-        if self.themes:
+        
+        if active_theme_name and active_theme_name in self.themes:
+            self.set_theme(active_theme_name)
+        elif "Kayzit Basic" in self.themes:
+            self.set_theme("Kayzit Basic")
+        elif "Kayzit OS" in self.themes:
+            self.set_theme("Kayzit OS")
+        elif self.themes:
             first = list(self.themes.keys())[0]
             self.set_theme(first)
         else:

@@ -943,12 +943,13 @@ class ControlDeck(QWidget):
 
             self.sys_data.reload_from_path(src)
             
+            act_theme = self.theme_mgr.get_active_theme_from_config(src)
             th_dir = os.path.join(src, "Themes")
             if os.path.exists(th_dir) and os.path.isdir(th_dir) and os.listdir(th_dir):
-                self.theme_mgr.reload_themes(th_dir)
+                self.theme_mgr.reload_themes(th_dir, active_theme_name=act_theme)
             else:
                 proj_th = os.path.join(self.sys_data.workspace_root, "Themes")
-                self.theme_mgr.reload_themes(proj_th)
+                self.theme_mgr.reload_themes(proj_th, active_theme_name=act_theme)
 
             self.update_boot_diagnostic_ui()
             self.refresh_theme_list()
