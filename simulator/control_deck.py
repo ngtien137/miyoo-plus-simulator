@@ -919,8 +919,13 @@ class ControlDeck(QWidget):
     def browse_source_dir(self):
         folder = QFileDialog.getExistingDirectory(self, tr("btn_browse_src"), self.get_source_path())
         if folder and os.path.exists(folder) and os.path.isdir(folder):
-            add_recent_source(self.sys_data.workspace_root, folder)
+            resolved = add_recent_source(self.sys_data.workspace_root, folder)
             self.populate_sources()
+            if resolved:
+                for idx in range(self.source_combo.count()):
+                    if self.source_combo.itemData(idx) == resolved:
+                        self.source_combo.setCurrentIndex(idx)
+                        break
             self.on_source_changed()
 
     def browse_target_dir(self):
@@ -932,7 +937,10 @@ class ControlDeck(QWidget):
     def on_source_changed(self):
         src = self.get_source_path()
         if src and os.path.exists(src) and os.path.isdir(src):
-            add_recent_source(self.sys_data.workspace_root, src)
+            resolved = add_recent_source(self.sys_data.workspace_root, src)
+            if resolved and resolved != src:
+                src = resolved
+
             self.sys_data.reload_from_path(src)
             
             th_dir = os.path.join(src, "Themes")
@@ -1260,6 +1268,23 @@ class ControlDeck(QWidget):
         return scroll
 
     # Handlers
+    def refresh_theme_list(self):
+        if not hasattr(self, 'theme_combo') or self.theme_combo is None:
+            return
+        self.theme_combo.blockSignals(True)
+        self.theme_combo.clear()
+        for name in self.theme_mgr.themes.keys():
+            self.theme_combo.addItem(name)
+        
+        if self.theme_mgr.current_theme and self.theme_mgr.current_theme.name in self.theme_mgr.themes:
+            self.theme_combo.setCurrentText(self.theme_mgr.current_theme.name)
+        elif self.theme_combo.count() > 0:
+            self.theme_combo.setCurrentIndex(0)
+            self.theme_mgr.set_theme(self.theme_combo.currentText())
+        self.theme_combo.blockSignals(False)
+        self.update_theme_preview()
+        self.update_theme_info()
+
     def on_theme_changed(self, name):
         self.theme_mgr.set_theme(name)
         self.update_theme_preview()

@@ -36,11 +36,17 @@ class MiyooSimulatorWindow(QMainWindow):
 
         target_root = "E:\\" if os.path.exists("E:\\") else project_root
         
-        # Themes resolution (Strictly from source payload)
+        # Themes resolution (Source payload with project fallback)
         themes_dir = os.path.join(source_root, "Themes")
+        if not os.path.exists(themes_dir) or not os.listdir(themes_dir):
+            proj_th = os.path.join(project_root, "Themes")
+            if os.path.exists(proj_th) and os.listdir(proj_th):
+                themes_dir = proj_th
 
         # Default Icons resolution (Directly from assets package)
-        default_icons_dir = os.path.join(project_root, "assets", "icons", "default")
+        default_icons_dir = os.path.join(project_root, "assets", "default_icons")
+        if not os.path.exists(default_icons_dir):
+            default_icons_dir = os.path.join(project_root, "assets", "icons", "default")
 
         # Window Icon
         icon_path = os.path.join(project_root, "assets", "icons", "app_icon.png")

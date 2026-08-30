@@ -1,0 +1,25 @@
+{
+  "name": "Kayzit Basic",
+  "author": "Kayzit Studio",
+  "version": "1.0",
+  "description": "Official Next-Gen 3D Glass & Obsidian Neon Theme for Kayzit OS",
+  "title": {
+    "color": "#00f0ff"
+  },
+  "hint": {
+    "color": "#a855f7"
+  },
+  "list": {
+    "color": "#ffffff"
+  },
+  "grid": {
+    "color": "#38bdf8",
+    "selectedcolor": "#00f0ff"
+  },
+  "batteryPercentage": {
+    "visible": true,
+    "color": "#10b981",
+    "size": 16,
+    "offsetX": 26
+  }
+}

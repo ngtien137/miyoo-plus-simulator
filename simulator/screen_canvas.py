@@ -422,9 +422,10 @@ class ScreenCanvas(QWidget):
         painter.drawText(QRectF(25, 6, 80, 24), Qt.AlignmentFlag.AlignVCenter | Qt.AlignmentFlag.AlignLeft, now)
 
         # Logo / OS Title
+        theme_name = self.theme_mgr.current_theme.name.upper() if (self.theme_mgr and self.theme_mgr.current_theme) else "KAYZIT BASIC"
         painter.setFont(QFont("Segoe UI", 12, QFont.Weight.Black))
         painter.setPen(QPen(QColor("#00f0ff")))
-        painter.drawText(QRectF(0, 6, 640, 24), Qt.AlignmentFlag.AlignCenter, "⚡ KAYZIT BASIC")
+        painter.drawText(QRectF(0, 6, 640, 24), Qt.AlignmentFlag.AlignCenter, f"⚡ {theme_name}")
 
         # Battery & Wi-Fi
         bat_level = self.battery_level
